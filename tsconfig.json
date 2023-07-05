@@ -1,0 +1,29 @@
+{
+  "ts-node": {
+    "transpileOnly": true
+  },
+  "compilerOptions": {
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "target": "es2017",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true,
+    "noErrorTruncation": true,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "allowImportingTsExtensions": true,
+    "plugins": [
+      {"name": "next"}
+    ]
+  },
+  "include": [
+    "src",
+    "test",
+    "*.js",
+    ".*.*js",
+    "*.md"
+  ]
+}
