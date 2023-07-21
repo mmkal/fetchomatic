@@ -23,7 +23,8 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
   //   ['make-fetch-happen', require('make-fetch-happen')],
   //   ['minipass-fetch', require('minipass-fetch')],
   // ].filter(e => e[1]) as Array<[name: string, fetch: typeof global.fetch]>)('fetch with %i', (_name, fetch) => {
-  test('retry', async () => {
+
+  const getRetryHelpers = () => {
     const warn = mockFn()
     const error = mockFn()
     const {fetch: myfetch} = fetchomatic(fetch).withRetry({
@@ -39,9 +40,8 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
             return previous
           }
 
-          const result = opts.basis(opts)
           return {
-            ...result,
+            ...previous,
             fetch: fetchomatic(opts.fetch).withBeforeRequest(({args, parsed}) => {
               args[1]!.headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
               return args
@@ -50,17 +50,20 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
         },
       ),
     })
-
+    return {warn, error, myfetch}
+  }
+  test('retry', async () => {
+    const {warn, error, myfetch} = getRetryHelpers()
     const good = await myfetch('http://localhost:7001/get', {headers: {request_failures: '3'}})
 
     await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
 
+    console.dir(error.mock.calls, {depth: 200})
     expect(error.mock.calls).toHaveLength(3)
     expect(warn.mock.calls).toHaveLength(1)
 
     warn.clear()
     error.clear()
-    // await server.reset()
 
     const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
     expect(bad.status).toBe(500)
