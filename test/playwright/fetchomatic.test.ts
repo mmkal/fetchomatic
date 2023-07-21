@@ -13,8 +13,8 @@ const cases = [
   ['minipass-fetch', require('minipass-fetch')],
 ]
 
-cases.slice(0, 1).forEach(([name, fetch]) => {
-  // test.describe(`${name} impl`, async () => {
+cases.forEach(([name, fetch]) => {
+  test.describe(`${name} impl`, async () => {
     createTestSuite({name, test, expect, fetch: fetch})
-  // })
+  })
 })

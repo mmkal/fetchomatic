@@ -5,9 +5,8 @@ import {z} from 'zod'
 import {fetchomatic} from '../../src/index.ts'
 import * as retry from '../../src/retry.ts'
 
-export const createTestSuite = (params: {name: string; test: typeof test; expect: import('@playwright/test').Expect; fetch: typeof fetch}) => {
-  const {fetch, expect} = params
-  const test = (title: string, cb: () => Promise<void>) => params.test(`${params.name} ${title}`, cb)
+export const createTestSuite = (params: {test: typeof test; expect: import('@playwright/test').Expect; fetch: typeof fetch}) => {
+  const {test, expect, fetch} = params
 
   const mockFn = () => {
     const calls: unknown[][] = []
