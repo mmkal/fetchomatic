@@ -3,7 +3,7 @@
 import {beforeAll, afterAll, beforeEach} from 'https://deno.land/std@0.158.0/testing/bdd.ts'
 import {expect} from 'https://deno.land/x/expect/mod.ts'
 import express from 'npm:express@4.18.2'
-import {server, startServer, createTestSuite} from '../jest/server.ts'
+import {server, startServer, createTestSuite} from '../jest/server.js'
 
 beforeAll(async () => {
   await startServer(express)

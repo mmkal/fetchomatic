@@ -39,6 +39,9 @@ dependencies:
     version: 3.21.4
 
 devDependencies:
+  '@playwright/test':
+    specifier: ^1.36.1
+    version: 1.36.1
   '@types/eslint':
     specifier: 8.37.0
     version: 8.37.0
@@ -60,6 +63,9 @@ devDependencies:
   np:
     specifier: 7.7.0
     version: 7.7.0
+  strip-indent:
+    specifier: ^4.0.0
+    version: 4.0.0
   ts-jest:
     specifier: 29.1.0
     version: 29.1.0(@babel/core@7.22.6)(jest@29.5.0)(typescript@5.0.4)
@@ -897,6 +903,17 @@ packages:
     requiresBuild: true
     dev: false
     optional: true
+
+  /@playwright/test@1.36.1:
+    resolution: {integrity: sha512-YK7yGWK0N3C2QInPU6iaf/L3N95dlGdbsezLya4n0ZCh3IL7VgPGxC6Gnznh9ApWdOmkJeleT2kMTcWPRZvzqg==}
+    engines: {node: '>=16'}
+    hasBin: true
+    dependencies:
+      '@types/node': 18.16.3
+      playwright-core: 1.36.1
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
 
   /@rushstack/eslint-config@3.3.2(eslint@8.40.0)(typescript@5.0.4):
     resolution: {integrity: sha512-uSrPkiZxh34I88tRdnrdDcn7tGZDKS/AMe6f8ieBdktvSROrBgNUlBoeAjtbXnbRxUmCOpkZRAAN+J/vP7IgmA==}
@@ -5884,6 +5901,12 @@ packages:
       find-up: 5.0.0
     dev: true
 
+  /playwright-core@1.36.1:
+    resolution: {integrity: sha512-7+tmPuMcEW4xeCL9cp9KxmYpQYHKkyjwoXRnoeTowaeNat8PoBMk/HwCYhqkH2fRkshfKEOiVus/IhID2Pg8kg==}
+    engines: {node: '>=16'}
+    hasBin: true
+    dev: true
+
   /pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -6606,6 +6629,13 @@ packages:
   /strip-indent@3.0.0:
     resolution: {integrity: sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ==}
     engines: {node: '>=8'}
+    dependencies:
+      min-indent: 1.0.1
+    dev: true
+
+  /strip-indent@4.0.0:
+    resolution: {integrity: sha512-mnVSV2l+Zv6BLpSD/8V87CW/y9EmmbYzGCIavsnsI6/nwn26DwffM/yztm30Z/I2DY9wdS3vXVCMnHDgZaVNoA==}
+    engines: {node: '>=12'}
     dependencies:
       min-indent: 1.0.1
     dev: true

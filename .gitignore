@@ -8,3 +8,6 @@ package-lock.json
 yarn.lock
 
 test/**/fixtures
+/test-results/
+/playwright-report/
+/playwright/.cache/
