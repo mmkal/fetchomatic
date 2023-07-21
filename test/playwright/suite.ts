@@ -42,10 +42,10 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
 
           return {
             ...previous,
-            fetch: fetchomatic(opts.fetch).withBeforeRequest(({args, parsed}) => {
-              args[1]!.headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
-              return args
-            }).fetch,
+            request: parsed => {
+              const headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
+              return {headers}
+            }
           }
         },
       ),
@@ -58,13 +58,12 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
 
     await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
 
-    console.dir(error.mock.calls, {depth: 200})
     expect(error.mock.calls).toHaveLength(3)
     expect(warn.mock.calls).toHaveLength(1)
+  })
 
-    warn.clear()
-    error.clear()
-
+  test('retry give up', async () => {
+    const {warn, error, myfetch} = getRetryHelpers()
     const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
     expect(bad.status).toBe(500)
     expect(await bad.json()).toMatchObject(
@@ -73,7 +72,7 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
       }
     )
 
-    expect(error.mock.calls).toHaveLength(4)
+    expect(error.mock.calls).toHaveLength(5)
     expect(warn.mock.calls).toHaveLength(1)
   })
 

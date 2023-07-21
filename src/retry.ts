@@ -19,7 +19,7 @@ export interface RetryInstruction {
   retryAfterMs: number | null
   previous: RetryInstruction | null
   reason: string
-  fetch?: BaseFetch
+  request?: (parsed: Pick<SimplifiedRequest, 'headers'>) => Pick<SimplifiedRequest, 'headers'>
 }
 
 export interface RetryInfo {
@@ -135,7 +135,7 @@ export const capRetryAttempts: ShouldRetryExtender<{attempts: number}> =
   ({attempts}) =>
   opts => {
     const previous = opts.basis(opts)
-    if (opts.attemptsMade >= attempts) {
+    if (opts.attemptsMade > attempts) {
       return {
         retryAfterMs: null,
         previous,
@@ -247,7 +247,10 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     }
 
     do {
-      const resolvedFetch = shouldRetry?.fetch || fetch
+      const resolvedFetch = fetch
+      const parsedArgs = parseFetchArgs([input, init])
+      const {headers} = shouldRetry?.request ? shouldRetry.request(parsedArgs) : parsedArgs
+      init = {...init, headers}
       result = await resolvedFetch(input, init)
         .then((response): typeof result => ({ok: true, response}))
         .catch((error): typeof result => ({ok: false, error}))
