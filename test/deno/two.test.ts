@@ -1,27 +1,40 @@
 /// <reference lib="deno.ns" />
 /// <reference lib="dom" />
-import {beforeAll, afterAll, beforeEach} from 'https://deno.land/std@0.158.0/testing/bdd.ts'
 import {expect} from 'https://deno.land/x/expect/mod.ts'
-import express from 'npm:express@4.18.2'
-import {server, startServer, createTestSuite} from '../jest/server.js'
-
-beforeAll(async () => {
-  await startServer(express)
-})
-
-afterAll(async () => {
-  await server.close()
-})
-
-beforeEach(async () => {
-  await server.reset()
-})
+import {createTestSuite} from '../suite.ts'
 
 createTestSuite({
-  test: Object.assign(Deno.test as any, {skip: () => {}}),
+  test: Object.assign((title: string, fn: Function) => Deno.test({
+    name: title,
+    fn,
+    sanitizeResources: false,
+    santizeOps: false,
+  }), {skip: () => {}}),
   expect: ((value: any) => ({
     toEqual: (expected: any) => expect(value).toEqual(expected),
     toMatchObject: (expected: any) => expect(value).toEqual({...value, ...expected}),
+    toBe: (other: any) => expect(value).toEqual(other),
+    toHaveLength: (length: number) => expect({length: value.length}).toEqual({length}),
+    get resolves() {
+      return new Promise(async (res, rej) => {
+        const resolved = await value
+        res({
+          toMatchObject: (expected: any) => expect(resolved).toEqual({...resolved, ...expected}),
+        })
+      })
+    },
+    get not() {
+      return {
+        toEqual: (expected: any) => {
+          try {
+            expect(value).toEqual(expected)
+          } catch {
+            return
+          }
+          throw new Error(`Value ${JSON.stringify(value)} was not supposed to equal ${JSON.stringify(expected)}`)
+        }
+      }
+    }
   })) as any,
   fetch: fetch,
 })

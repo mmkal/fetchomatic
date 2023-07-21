@@ -1,4 +1,4 @@
-import type {FetchErrorCode} from './types.js'
+import type {FetchErrorCode} from './types.ts'
 
 const customErrorCodes = ['FETCHOMATIC_ABORTED', 'FETCHOMATIC_EUNKNOWN'] as const
 export type CustomErrorCode = (typeof customErrorCodes)[number]

@@ -1,4 +1,4 @@
-import type {Awaitable} from '../types.js'
+import type {Awaitable} from '../types.ts'
 
 export interface DeserializedData<Value> {
   value: Value

@@ -1,6 +1,6 @@
 // todo: do own module augmentation/use a different type then the default `RequestInit`
 // import 'next'
-import type {BaseFetch, Method} from './types.js'
+import type {BaseFetch, Method} from './types.ts'
 
 // interface RequestInit {
 //   next?: NextFetchRequestConfig | undefined

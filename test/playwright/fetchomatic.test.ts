@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import express from 'express'
-import {createTestSuite} from './suite.ts'
+import {createTestSuite} from '../suite.ts'
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url)
