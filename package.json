@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:deno": "deno test test/deno --no-check --allow-net --allow-read --trace-ops",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
     "eslint": "eslint --ext '.ts,.js,.md'",
