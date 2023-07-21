@@ -27,5 +27,9 @@
     "*.js",
     ".*.*js",
     "*.md"
+  ],
+  "exclude": [
+    "test/deno",
+    "test/bun"
   ]
 }

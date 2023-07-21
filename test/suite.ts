@@ -85,7 +85,7 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
     await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
     const bad = await myfetch('http://localhost:7001/get?notfoo=x')
-    await expect(bad.json()).rejects.toThrowError(stripIndent(`
+    await expect(bad.json().catch(e => e.message)).resolves.toEqual(stripIndent(`
       [
         {
           "code": "invalid_type",
@@ -107,7 +107,8 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
     const good = await myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '500'}})
     await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
-    const bad = myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
+    // make sure this is a function, not a promise, for bun's sake: https://github.com/oven-sh/bun/issues/1546#issuecomment-1645239445
+    const bad = () => myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
     // https://github.com/nodejs/node/issues/40692#issuecomment-956658594
     await expect(bad).rejects.toThrow(/aborted/i)
   })

@@ -72,7 +72,7 @@ export const jsonFetchArgs = <T>(url: string | URL, params: {json: T}): Paramete
   ]
 }
 
-type RequestInitN = RequestInit & {next: {tags: string[]}}
+type RequestInitN = RequestInit & {next?: {tags: string[]}}
 /** Merges two request init objects, deep-merging headers and `next`-specific stuff */
 export const mergeTwoRequestInit = (left: RequestInitN, right: RequestInitN): RequestInitN => {
   return {
