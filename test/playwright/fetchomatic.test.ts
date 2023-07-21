@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import express from 'express'
 import {createTestSuite} from '../suite.ts'
 import { createRequire } from 'module';
 
@@ -15,6 +14,6 @@ const cases = [
 
 cases.forEach(([name, fetch]) => {
   test.describe(`${name} impl`, async () => {
-    createTestSuite({name, test, expect, fetch: fetch})
+    createTestSuite({test, expect, fetch: fetch})
   })
 })

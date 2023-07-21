@@ -5,23 +5,21 @@ import {z} from 'zod'
 import {fetchomatic} from '../src/index.ts'
 import * as retry from '../src/retry.ts'
 
-export const createTestSuite = (params: {test: typeof test; expect: import('@playwright/test').Expect; fetch: typeof fetch}) => {
-  const {test, expect, fetch} = params
+export type Test = (title: string, fn: () => Promise<void>) => void
 
+type TestSuiteInputs = {
+  test: Test
+  expect: import('@playwright/test').Expect
+  fetch: typeof fetch
+}
+
+export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
   const mockFn = () => {
     const calls: unknown[][] = []
     const fn = (...args: unknown[]) => void calls.push(args)
 
     return Object.assign(fn, {mock: {calls}, clear: () => calls.splice(0, calls.length)})
   }
-
-  // describe.each([
-  //   ['global.fetch', globalFetch],
-  //   ['node-fetch', require('node-fetch')],
-  //   ['isomorphic-fetch', require('isomorphic-fetch')],
-  //   ['make-fetch-happen', require('make-fetch-happen')],
-  //   ['minipass-fetch', require('minipass-fetch')],
-  // ].filter(e => e[1]) as Array<[name: string, fetch: typeof global.fetch]>)('fetch with %i', (_name, fetch) => {
 
   const getRetryHelpers = () => {
     const warn = mockFn()
