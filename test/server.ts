@@ -28,7 +28,7 @@ export const runServer = async () => {
 
   app.use(/\/(get|post|put)/, async (req, res) => {
     const failureTarget = Number(req.headers.request_failures);
-    const retryNumber = Number(req.headers.retry_number); // todo: figure out if there's a standardized header for this
+    const retryNumber = Number(req.headers.retry_number || 1); // todo: figure out if there's a standardized header for this
     if (retryNumber <= failureTarget) {
       res.status(Number(req.query.request_failure_status) || 500).send({
         message: `Failed ${retryNumber} times`,
