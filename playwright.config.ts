@@ -6,5 +6,6 @@ export default defineConfig({
   webServer: {
     command: "pnpm run test-server",
     url: 'http://localhost:7001/health',
+    reuseExistingServer: true,
   },
 });

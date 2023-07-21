@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "jest",
+    "test": "playwright test",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
     "eslint": "eslint --ext '.ts,.js,.md'",
