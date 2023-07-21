@@ -52,13 +52,13 @@ export const createTestSuite = (params: {name: string; test: typeof test; expect
     })
     return {warn, error, myfetch}
   }
-  test('retry', async () => {
+  test('retry succeed', async () => {
     const {warn, error, myfetch} = getRetryHelpers()
     const good = await myfetch('http://localhost:7001/get', {headers: {request_failures: '3'}})
 
     await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
 
-    expect(error.mock.calls).toHaveLength(3)
+    expect(error.mock.calls).toHaveLength(4)
     expect(warn.mock.calls).toHaveLength(1)
   })
 
