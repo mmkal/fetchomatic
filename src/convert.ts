@@ -28,7 +28,6 @@ export const parseFetchArgs = ([init, input]: Parameters<BaseFetch>): Simplified
     },
     get json() {
       const json = input?.body?.toString()
-      // eslint-disable-next-line mmkal/@typescript-eslint/no-base-to-string
       return json ? JSON.parse(json) : null
     },
     get text() {

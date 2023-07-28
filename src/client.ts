@@ -27,7 +27,7 @@ export type Client<Parsers extends Record<string, ResponseParser<any>>> = {
   parsers: Parsers
 }
 
-export type ClientOptions<Parsers extends Record<string, ResponseParser<any>>> = {
+export type ClientOptions<Parsers extends Record<`/${string}`, ResponseParser<any>>> = {
   baseUrl?: string
   parsers?: Parsers
 }

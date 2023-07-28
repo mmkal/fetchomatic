@@ -1,6 +1,8 @@
 # fetchomatic
+
 Wrap fetch with retries, timeout, logging, caching, error handling and more
 
+🚧 Work in progress, probably shouldn't be used yet unless you're me or you want to help debug/design 🚧
 
 Aims:
 

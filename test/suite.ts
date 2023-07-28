@@ -169,6 +169,25 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
     })
   })
 
+  test('client with zod', async () => {
+    const client = fetchomatic(fetch)
+      .client({
+        baseUrl: 'http://localhost:7001',
+        parsers: {
+          '/get': {
+            json: z.object({
+              query: z.object({x: z.string()})
+            })
+          },
+        }
+      })
+
+    const res = await client.get.json('/get', {query: {x: 'yy'}})
+    expect(res.data).toEqual({query: {x: 'yy'}})
+
+    await expect(() => client.get.json('/get', {query: {a: 'bb'}})).rejects.toThrow(/invalid_type.*expected.*string.*received.*undefined.*path.*query.*x/s)
+  })
+
   test('stale while revalidate', async () => {
     const map = new Map<string, string>()
     const log = mockFn()
