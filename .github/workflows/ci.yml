@@ -1,0 +1,31 @@
+name: CI
+on:
+  push:
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 18
+    - uses: pnpm/action-setup@v2
+      with:
+        version: 8
+    - run: pnpm install
+
+    - run: pnpm test:node
+
+    - run: pnpm test-server &
+    - run: sleep 2
+
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+    - run: pnpm test:deno
+
+    - uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+    - run: pnpm test:bun

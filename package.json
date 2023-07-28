@@ -12,6 +12,7 @@
     "test:bun": "bun test test/bun",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
+    "playwright:browsers": "playwright install --with-deps",
     "eslint": "eslint --ext '.ts,.js,.md'",
     "lint": "tsc && eslint .",
     "build": "rm -rf dist && tsc -p tsconfig.lib.json"
