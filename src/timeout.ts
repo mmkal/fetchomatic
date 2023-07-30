@@ -1,6 +1,6 @@
-import {FetchomaticError} from './errors.ts'
-import {withBeforeError} from './hooks.ts'
-import type {BaseFetch} from './types.ts'
+import {FetchomaticError} from './errors.js'
+import {withBeforeError} from './hooks.js'
+import type {BaseFetch} from './types.js'
 
 export interface TimeoutOptions {
   ms: number

@@ -2,8 +2,6 @@ import stripIndent from 'strip-indent'
 import type _express from 'express'
 import Keyv from 'keyv'
 import {z} from 'zod'
-import {fetchomatic} from '../src/index.ts'
-import * as retry from '../src/retry.ts'
 
 export type Test = (title: string, fn: () => Promise<void>) => void
 
@@ -11,9 +9,11 @@ type TestSuiteInputs = {
   test: Test
   expect: import('@playwright/test').Expect
   fetch: typeof fetch
+  fetchomatic: typeof import('../src/index.js').fetchomatic
+  retry: typeof import('../src/index.js').retry
 }
 
-export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
+export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestSuiteInputs) => {
   const mockFn = () => {
     const calls: unknown[][] = []
     const fn = (...args: unknown[]) => void calls.push(args)
@@ -137,7 +137,7 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
         // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.ts').KeyvLike<string>,
+        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
       .client({baseUrl: 'http://localhost:7001'})
@@ -185,7 +185,8 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
     const res = await client.get.json('/get', {query: {x: 'yy'}})
     expect(res.data).toEqual({query: {x: 'yy'}})
 
-    await expect(() => client.get.json('/get', {query: {a: 'bb'}})).rejects.toThrow(/invalid_type.*expected.*string.*received.*undefined.*path.*query.*x/s)
+    const bad = async () => client.get.json('/get', {query: {a: 'bb'}}).catch(e => e.message)
+    expect(await bad()).toMatch(/invalid_type.*expected.*string.*received.*undefined.*path.*query.*x/s)
   })
 
   test('stale while revalidate', async () => {
@@ -213,7 +214,7 @@ export const createTestSuite = ({test, expect, fetch}: TestSuiteInputs) => {
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
         // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.ts').KeyvLike<string>,
+        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
       .client({baseUrl: 'http://localhost:7001'})

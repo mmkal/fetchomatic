@@ -1,5 +1,5 @@
-import {parseHeaders} from './convert.ts'
-import type {BaseFetch} from './types.ts'
+import {parseHeaders} from './convert.js'
+import type {BaseFetch} from './types.js'
 
 /** zod-like parser */
 export type Parser<T> = {

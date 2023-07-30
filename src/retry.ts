@@ -1,7 +1,7 @@
-import type {SimplifiedRequest} from './convert.ts'
-import {parseFetchArgs, simplifyResponse} from './convert.ts'
-import type {LogMethod, Logger} from './logging.ts'
-import type {Method, FetchErrorCode, BaseFetch} from './types.ts'
+import type {SimplifiedRequest} from './convert.js'
+import {parseFetchArgs, simplifyResponse} from './convert.js'
+import type {LogMethod, Logger} from './logging.js'
+import type {Method, FetchErrorCode, BaseFetch} from './types.js'
 
 export interface ShouldRetryOptions {
   attemptsMade: number

@@ -1,6 +1,6 @@
-import {simplifyResponse} from './convert.ts'
-import {withAfterResponse, withBeforeError, withBeforeRequest} from './hooks.ts'
-import type {BaseFetch} from './types.ts'
+import {simplifyResponse} from './convert.js'
+import {withAfterResponse, withBeforeError, withBeforeRequest} from './hooks.js'
+import type {BaseFetch} from './types.js'
 
 export type Log<Args extends any[] = any[]> = (...args: Args) => void
 export type LogMethod = 'info' | 'warn' | 'error'

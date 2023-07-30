@@ -1,6 +1,7 @@
 // @ts-ignore
 import { test, expect } from 'bun:test';
 import {createTestSuite} from '../suite'
+import {fetchomatic, retry} from '../../src'
 
 createTestSuite({
     test: (title, fn) => {
@@ -8,5 +9,7 @@ createTestSuite({
         test(title, fn)
     },
     expect,
-    fetch
+    fetch,
+    fetchomatic,
+    retry,
 })

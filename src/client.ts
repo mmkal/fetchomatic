@@ -1,6 +1,6 @@
-import {mergeRequestInits, parseHeaders} from './convert.ts'
-import {withParser, type JsonType, type ResponseParser} from './parse.ts'
-import {Methods, type BaseFetch, type Method} from './types.ts'
+import {mergeRequestInits, parseHeaders} from './convert.js'
+import {withParser, type JsonType, type ResponseParser} from './parse.js'
+import {Methods, type BaseFetch, type Method} from './types.js'
 
 export interface JsonResponse<T> {
   status: number

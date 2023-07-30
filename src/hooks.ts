@@ -1,5 +1,5 @@
-import {mergeRequestInits, parseFetchArgs} from './convert.ts'
-import type {Awaitable, BaseFetch} from './types.ts'
+import {mergeRequestInits, parseFetchArgs} from './convert.js'
+import type {Awaitable, BaseFetch} from './types.js'
 
 export type BeforeRequestHandler = (params: {
   parsed: ReturnType<typeof parseFetchArgs>

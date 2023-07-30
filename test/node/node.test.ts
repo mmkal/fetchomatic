@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
-import {createTestSuite} from '../suite.ts'
+import {createTestSuite} from '../suite.js'
 import { createRequire } from 'module';
+import {fetchomatic, retry} from '../../src/index.js'
 
 const require = createRequire(import.meta.url)
 
@@ -14,6 +15,6 @@ const cases = [
 
 cases.forEach(([name, fetch]) => {
   test.describe(`${name} impl`, async () => {
-    createTestSuite({test, expect, fetch: fetch})
+    createTestSuite({test, expect, fetch: fetch, fetchomatic, retry})
   })
 })

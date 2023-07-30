@@ -8,14 +8,14 @@
     "test": "playwright test",
     "test-all": "concurrently 'npm:test:*'",
     "test:node": "playwright test",
-    "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
+    "test:deno": "yarn build && DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
     "test:bun": "bun test test/bun",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
     "playwright:browsers": "playwright install --with-deps",
     "eslint": "eslint --ext '.ts,.js,.md'",
     "lint": "tsc && eslint .",
-    "build": "rm -rf dist && tsc -p tsconfig.lib.json"
+    "build": "rm -rf dist && tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json"
   },
   "keywords": [],
   "author": "",

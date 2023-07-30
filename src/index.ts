@@ -1,12 +1,12 @@
-import type {Client, ClientOptions} from './exports.ts'
-import * as xports from './exports.ts'
-import {client} from './exports.ts'
-import type {ResponseParser} from './parse.ts'
-import {withParser} from './parse.ts'
-import {withRetry} from './retry.ts'
-import type {BaseFetch} from './types.ts'
+import type {Client, ClientOptions} from './exports.js'
+import * as xports from './exports.js'
+import {client} from './exports.js'
+import type {ResponseParser} from './parse.js'
+import {withParser} from './parse.js'
+import {withRetry} from './retry.js'
+import type {BaseFetch} from './types.js'
 
-export * from './exports.ts'
+export * from './exports.js'
 
 export const fetchWrapper = (...options: Array<Parameters<typeof withRetry>[1] | Parameters<typeof withParser>[1]>) => {
   return (fetch: BaseFetch) => {
@@ -61,8 +61,4 @@ export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
     },
   ) as any as Fetchomatic
 
-const x = fetchomatic(fetch)
-  .withRetry({shouldRetry: xports.awsRetryConfig})
-  .withBeforeRequestLogger()
-  .withBeforeErrorLogger()
-  .withTimeout({ms: 1000})
+export * as retry from './retry.js'

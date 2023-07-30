@@ -1,7 +1,7 @@
-import {parseFetchArgs, parseHeaders} from '../convert.ts'
-import type {BaseFetch} from '../types.ts'
-import {CachePolicy, type CacheInfoRequest, type CacheInfoResponse} from './http-cache-semantics.ts'
-import type {KeyvLike} from './keyv.ts'
+import {parseFetchArgs, parseHeaders} from '../convert.js'
+import type {BaseFetch} from '../types.js'
+import {CachePolicy, type CacheInfoRequest, type CacheInfoResponse} from './http-cache-semantics.js'
+import type {KeyvLike} from './keyv.js'
 
 export interface SerializeableResponseInit {
   status?: number
