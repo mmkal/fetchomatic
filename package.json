@@ -2,10 +2,9 @@
   "name": "fetchomatic",
   "version": "0.0.1",
   "description": "Wrap fetch with retries, timeout, logging, caching, error handling and more",
-  "type": "module",
   "exports": {
-    "require": "dist/cjs/index.js",
-    "import": "dist/cjs/wrapper.mjs"
+    "require": "./dist/cjs/index.js",
+    "import": "./dist/cjs/wrapper.mjs"
   },
   "scripts": {
     "test": "playwright test",
