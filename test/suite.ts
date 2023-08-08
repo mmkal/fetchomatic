@@ -2,7 +2,6 @@
 import type {Expect} from '@playwright/test'
 import type _express from 'express'
 import Keyv from 'keyv'
-import stripIndent from 'strip-indent'
 import {z} from 'zod'
 import type * as Src from '../src/index.js'
 
@@ -88,20 +87,19 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
 
     const bad = await myfetch('http://localhost:7001/get?notfoo=x')
     await expect(bad.json().catch(e => e.message)).resolves.toEqual(
-      stripIndent(`
+      JSON.stringify(
         [
           {
-            "code": "invalid_type",
-            "expected": "string",
-            "received": "undefined",
-            "path": [
-              "query",
-              "foo"
-            ],
-            "message": "Required"
-          }
-        ]
-      `).trim(),
+            code: 'invalid_type',
+            expected: 'string',
+            received: 'undefined',
+            path: ['query', 'foo'],
+            message: 'Required',
+          },
+        ],
+        null,
+        2,
+      ).trim(),
     )
   })
 

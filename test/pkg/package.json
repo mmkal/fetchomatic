@@ -1,0 +1,11 @@
+{
+    "name": "pkg-test",
+    "version": "0.0.1",
+    "type": "module",
+    "scripts": {
+        "setup": "rm -rf node_modules && npm un fetchomatic && (cd ../.. && mv $(npm pack) test/pkg/fetchomatic.tgz) && npm install fetchomatic.tgz"
+    },
+    "dependencies": {
+        "fetchomatic": "file:fetchomatic.tgz"
+    }
+}

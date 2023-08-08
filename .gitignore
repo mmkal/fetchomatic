@@ -11,3 +11,5 @@ test/**/fixtures
 /test-results/
 /playwright-report/
 /playwright/.cache/
+*.tgz
+.DS_Store
