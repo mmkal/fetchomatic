@@ -57,10 +57,11 @@
   ],
   "scripts": {
     "test": "playwright test",
-    "test-all": "concurrently 'npm:test:*'",
+    "test-all": "pnpm build && concurrently 'npm:test:*'",
     "test:node": "playwright test",
-    "test:deno": "yarn build && DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
+    "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
     "test:bun": "bun test test/bun",
+    "test:pkg": "(cd test/pkg && pnpm setup) && TEST_DIR=test/pkg pnpm test",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
     "playwright:browsers": "playwright install --with-deps",

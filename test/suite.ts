@@ -217,7 +217,12 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
         keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
-      .client({baseUrl: 'http://localhost:7001'})
+      .client({
+        baseUrl: 'http://localhost:7001',
+        parsers: {
+          '/get': {json: {parse: x => x as any}},
+        },
+      })
 
     const one = await client.get.json('/get', {headers: {label: 'first'}})
     await new Promise(r => setTimeout(r, 2000))
@@ -225,11 +230,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     await new Promise(r => setTimeout(r, 2000))
     const three = await client.get.json('/get', {headers: {label: 'third'}})
 
-    expect(one.data as {}).toMatchObject({
+    expect(one.data).toMatchObject({
       query: {},
       url: '/',
     })
-    expect(one.data as {}).toMatchObject({
+    expect(one.data).toMatchObject({
       query: {},
       url: '/',
     })
@@ -243,8 +248,12 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
       '[third] before raw fetch (swr: false)',
     ])
 
-    expect(two.data as {}).toEqual(one.data)
-    expect(three.data as {}).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
+    expect(one.data.headers).toMatchObject({label: 'first'})
+    expect(two.data.headers).toMatchObject({label: 'first'})
+    expect(three.data.headers).toMatchObject({label: 'third'})
+
+    expect(two.data).toEqual(one.data)
+    expect(three.data).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
     expect(two.headers).not.toEqual(one.headers)
     expect(two.status).toEqual(one.status)
     expect(two.headers).toEqual({

@@ -12,6 +12,7 @@ Aims:
 1. Be very small.
 1. Have no dependencies at all - users must even pass their own `fetch` in.
 1. Be very configurable.
+1. Work anywhere.
 1. Be very flexible. Work with popular tools:
     - `zod` for parsing
     - `pino` for logging
@@ -19,3 +20,7 @@ Aims:
     - `next` for... stuff
     - `keyv` for caching
 1. Be un-surprising and honest.
+
+## Obligatory CommonJS vs ESM stance
+
+I want this to be usable from CommonJS or ESM, and avoid major pitfalls. So, the main export is commonjs, and there's an ESM wrapper which exposes each export. I respect [sindresorhus' opinionated-ness](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) but there are many people who are still using CommonJS at time of writing. ESM can import CommonJS too, so the friendlier thing to do - for now, IMHO - is wrap. The default import (`require('fetchomatic')` or `import('fetchomatic')` or `import {...} from 'fetchomatic'` minimises [the dual-package hazard](https://nodejs.org/api/packages.html#dual-package-hazard), but to cover all bases, there's also an `import {...} from 'fetchomatic/esm'` option. Only use that if you're sure you need to, though, because it could mean `instanceof` checks from the main export retrun `false` unexpectedly).
