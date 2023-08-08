@@ -1,16 +1,19 @@
+/* eslint-disable mmkal/@typescript-eslint/consistent-type-imports */
+import type {Expect} from '@playwright/test'
 import type _express from 'express'
 import Keyv from 'keyv'
 import stripIndent from 'strip-indent'
 import {z} from 'zod'
+import type * as Src from '../src/index.js'
 
 export type Test = (title: string, fn: () => Promise<void>) => void
 
 type TestSuiteInputs = {
   test: Test
-  expect: import('@playwright/test').Expect
+  expect: Expect
   fetch: typeof fetch
-  fetchomatic: typeof import('../src/index.cjs').fetchomatic
-  retry: typeof import('../src/index.cjs').retry
+  fetchomatic: typeof Src.fetchomatic
+  retry: typeof Src.retry
 }
 
 export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestSuiteInputs) => {
@@ -137,8 +140,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
       .withBeforeRequest(({parsed}) => log('before raw fetch: ' + parsed.headers.label))
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.cjs').KeyvLike<string>,
+        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
       .client({baseUrl: 'http://localhost:7001'})
@@ -199,8 +201,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
         'set-response-headers': 'age=0&cache-control=max-age=1, stale-while-revalidate=2',
       })
       .withBeforeRequest(({args, parsed}) => {
-        // add an `swr` header based on `if-none-match`, since http-cache-semantics adds `if-none-match` based on etag
-        args[1]!.headers = {...parsed.headers, swr: Boolean(parsed.headers['if-none-match']).toString()}
+        args[1]!.headers = {
+          ...parsed.headers,
+          // add an `swr` header based on `if-none-match`, since http-cache-semantics adds `if-none-match` based on etag
+          swr: Boolean(parsed.headers['if-none-match']).toString(),
+        }
 
         if (parsed.headers.label === 'second' && parsed.headers.swr) {
           // artificially slow down the second swr request so we can see that the third request blocks since it's outside the max-age and swr windows
@@ -211,8 +216,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
       })
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.cjs').KeyvLike<string>,
+        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
       .client({baseUrl: 'http://localhost:7001'})
@@ -242,7 +246,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     ])
 
     expect(two.data as {}).toEqual(one.data)
-    // expect(three.data).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
+    expect(three.data as {}).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
     expect(two.headers).not.toEqual(one.headers)
     expect(two.status).toEqual(one.status)
     expect(two.headers).toEqual({

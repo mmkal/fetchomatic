@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test'
 import {createRequire} from 'module'
-import {fetchomatic, retry} from '../../src/index.cjs'
+import {fetchomatic, retry} from '../../src/index.js'
 import {createTestSuite} from '../suite.js'
 
 const require = createRequire(import.meta.url)

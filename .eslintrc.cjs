@@ -27,12 +27,3 @@ module.exports = {
     'mmkal/unicorn/expiring-todo-comments': 'off', // broken in vscode somehow?
   },
 }
-
-Object.defineProperty(module.exports, 'generateWrapper', {
-  enumerable: false,
-  value() {
-    require('ts-node/register')
-    const main = require('./src/index.cts')
-    return `export {${Object.keys(main).join(', ')}} from './index'`
-  },
-})

@@ -32,6 +32,7 @@ export type ClientOptions<Parsers extends Record<`/${string}`, ResponseParser<an
   parsers?: Parsers
 }
 
+/** experimental, API will change */
 export const client = <Parsers extends Record<string, ResponseParser<any>> = Record<string, ResponseParser<unknown>>>(
   fetch: BaseFetch,
   options?: ClientOptions<Parsers>,
