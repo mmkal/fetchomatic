@@ -57,7 +57,7 @@
     "test:node": "playwright test",
     "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
     "test:bun": "bun test test/bun",
-    "test:pkg": "(cd test/pkg && pnpm setup) && TEST_DIR=test/pkg pnpm test",
+    "test:pkg": "(cd test/pkg && pnpm init) && TEST_DIR=test/pkg pnpm test",
     "test-server": "ts-node test/server.ts",
     "playwright": "playwright",
     "playwright:browsers": "playwright install --with-deps",
