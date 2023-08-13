@@ -10,12 +10,7 @@
       "types": "./dist/cjs/index.d.ts",
       "require": "./dist/cjs/index.cjs",
       "import": "./dist/esm-wrapper.mjs"
-    },
-    "./esm": {
-      "types": "./dist/esm/index.d.ts",
-      "import": "./dist/esm/index.js"
-    },
-    "./package.json": "./package.json"
+    }
   },
   "keywords": [
     "fetch",
@@ -52,7 +47,8 @@
   "license": "ISC",
   "bin": "dist/bin.js",
   "files": [
-    "dist",
+    "dist/cjs",
+    "dist/esm-wrapper.mjs",
     "*.md"
   ],
   "scripts": {
