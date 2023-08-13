@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "type": "module",
     "scripts": {
-        "init": "rm -rf node_modules && npm un fetchomatic && (cd ../.. && mv $(npm pack) test/pkg/fetchomatic.tgz) && npm install fetchomatic.tgz"
+        "add-local-fetchomatic": "rm -rf node_modules && npm un fetchomatic && (cd ../.. && mv $(npm pack) test/pkg/fetchomatic.tgz) && npm install fetchomatic.tgz"
     },
     "dependencies": {
         "fetchomatic": "file:fetchomatic.tgz"
