@@ -1,6 +1,6 @@
 {
   "name": "fetchomatic",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Wrap fetch with retries, timeout, logging, caching, error handling and more",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
@@ -22,26 +22,26 @@
     "xhr",
     "whatwg",
     "https",
-		"http2",
-		"get",
-		"got",
-		"url",
-		"uri",
-		"request",
-		"simple",
-		"curl",
-		"wget",
-		"fetch",
-		"net",
-		"network",
-		"gzip",
-		"brotli",
-		"requests",
-		"human-friendly",
-		"axios",
-		"superagent",
-		"node-fetch",
-		"ky"
+    "http2",
+    "get",
+    "got",
+    "url",
+    "uri",
+    "request",
+    "simple",
+    "curl",
+    "wget",
+    "fetch",
+    "net",
+    "network",
+    "gzip",
+    "brotli",
+    "requests",
+    "human-friendly",
+    "axios",
+    "superagent",
+    "node-fetch",
+    "ky"
   ],
   "author": "fetch",
   "license": "ISC",
@@ -89,6 +89,6 @@
     "zod": "^3.21.4"
   },
   "np": {
-      "cleanup": false
+    "cleanup": false
   }
 }
