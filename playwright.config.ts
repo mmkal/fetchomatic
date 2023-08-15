@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './test/node',
+  testDir: process.env.TEST_DIR || './test/node',
   fullyParallel: true,
   webServer: {
     command: "pnpm run test-server",

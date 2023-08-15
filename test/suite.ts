@@ -1,16 +1,18 @@
-import stripIndent from 'strip-indent'
+/* eslint-disable mmkal/@typescript-eslint/consistent-type-imports */
+import type {Expect} from '@playwright/test'
 import type _express from 'express'
 import Keyv from 'keyv'
 import {z} from 'zod'
+import type * as Src from '../src/index.js'
 
 export type Test = (title: string, fn: () => Promise<void>) => void
 
 type TestSuiteInputs = {
   test: Test
-  expect: import('@playwright/test').Expect
+  expect: Expect
   fetch: typeof fetch
-  fetchomatic: typeof import('../src/index.js').fetchomatic
-  retry: typeof import('../src/index.js').retry
+  fetchomatic: typeof Src.fetchomatic
+  retry: typeof Src.retry
 }
 
 export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestSuiteInputs) => {
@@ -42,13 +44,14 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
             request: parsed => {
               const headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
               return {headers}
-            }
+            },
           }
         },
       ),
     })
     return {warn, error, myfetch}
   }
+
   test('retry succeed', async () => {
     const {warn, error, myfetch} = getRetryHelpers()
     const good = await myfetch('http://localhost:7001/get', {headers: {request_failures: '3'}})
@@ -63,11 +66,9 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     const {warn, error, myfetch} = getRetryHelpers()
     const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
     expect(bad.status).toBe(500)
-    expect(await bad.json()).toMatchObject(
-      {
-        "message": "Failed 5 times",
-      }
-    )
+    expect(await bad.json()).toMatchObject({
+      message: 'Failed 5 times',
+    })
 
     expect(error.mock.calls).toHaveLength(5)
     expect(warn.mock.calls).toHaveLength(1)
@@ -85,20 +86,21 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
     const bad = await myfetch('http://localhost:7001/get?notfoo=x')
-    await expect(bad.json().catch(e => e.message)).resolves.toEqual(stripIndent(`
-      [
-        {
-          "code": "invalid_type",
-          "expected": "string",
-          "received": "undefined",
-          "path": [
-            "query",
-            "foo"
-          ],
-          "message": "Required"
-        }
-      ]
-    `).trim())
+    await expect(bad.json().catch(e => e.message)).resolves.toEqual(
+      JSON.stringify(
+        [
+          {
+            code: 'invalid_type',
+            expected: 'string',
+            received: 'undefined',
+            path: ['query', 'foo'],
+            message: 'Required',
+          },
+        ],
+        null,
+        2,
+      ).trim(),
+    )
   })
 
   test('timeout', async () => {
@@ -108,7 +110,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
     // make sure this is a function, not a promise, for bun's sake: https://github.com/oven-sh/bun/issues/1546#issuecomment-1645239445
-    const bad = () => myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
+    const bad = async () => myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
     // https://github.com/nodejs/node/issues/40692#issuecomment-956658594
     await expect(bad).rejects.toThrow(/aborted/i)
   })
@@ -136,7 +138,6 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
       .withBeforeRequest(({parsed}) => log('before raw fetch: ' + parsed.headers.label))
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
         keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
@@ -146,13 +147,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     await new Promise(r => setTimeout(r, 1000))
     const two = await client.get.text('/get', {headers: {label: 'second'}})
 
-    expect(log.mock.calls.map(c => c[0])).toMatchObject(
-      [
-        "before cached fetch: first",
-        "before raw fetch: first",
-        "before cached fetch: second",
-      ]
-    )
+    expect(log.mock.calls.map(c => c[0])).toMatchObject([
+      'before cached fetch: first',
+      'before raw fetch: first',
+      'before cached fetch: second',
+    ])
     expect(two.data).toEqual(one.data)
     expect(two.headers).not.toEqual(one.headers)
     expect(two.status).toEqual(one.status)
@@ -170,17 +169,16 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   })
 
   test('client with zod', async () => {
-    const client = fetchomatic(fetch)
-      .client({
-        baseUrl: 'http://localhost:7001',
-        parsers: {
-          '/get': {
-            json: z.object({
-              query: z.object({x: z.string()})
-            })
-          },
-        }
-      })
+    const client = fetchomatic(fetch).client({
+      baseUrl: 'http://localhost:7001',
+      parsers: {
+        '/get': {
+          json: z.object({
+            query: z.object({x: z.string()}),
+          }),
+        },
+      },
+    })
 
     const res = await client.get.json('/get', {query: {x: 'yy'}})
     expect(res.data).toEqual({query: {x: 'yy'}})
@@ -201,8 +199,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
         'set-response-headers': 'age=0&cache-control=max-age=1, stale-while-revalidate=2',
       })
       .withBeforeRequest(({args, parsed}) => {
-        // add an `swr` header based on `if-none-match`, since http-cache-semantics adds `if-none-match` based on etag
-        args[1]!.headers = {...parsed.headers, swr: Boolean(parsed.headers['if-none-match']).toString()}
+        args[1]!.headers = {
+          ...parsed.headers,
+          // add an `swr` header based on `if-none-match`, since http-cache-semantics adds `if-none-match` based on etag
+          swr: Boolean(parsed.headers['if-none-match']).toString(),
+        }
 
         if (parsed.headers.label === 'second' && parsed.headers.swr) {
           // artificially slow down the second swr request so we can see that the third request blocks since it's outside the max-age and swr windows
@@ -213,11 +214,15 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
       })
       .withCache({
         // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        // eslint-disable-next-line mmkal/@typescript-eslint/consistent-type-imports
         keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
       .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
-      .client({baseUrl: 'http://localhost:7001'})
+      .client({
+        baseUrl: 'http://localhost:7001',
+        parsers: {
+          '/get': {json: {parse: x => x as any}},
+        },
+      })
 
     const one = await client.get.json('/get', {headers: {label: 'first'}})
     await new Promise(r => setTimeout(r, 2000))
@@ -225,27 +230,30 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     await new Promise(r => setTimeout(r, 2000))
     const three = await client.get.json('/get', {headers: {label: 'third'}})
 
-    expect(one.data as {}).toMatchObject({
-      query: {}, url: '/'
+    expect(one.data).toMatchObject({
+      query: {},
+      url: '/',
     })
-    expect(one.data as {}).toMatchObject({
+    expect(one.data).toMatchObject({
       query: {},
       url: '/',
     })
 
-    expect(log.mock.calls.map(c => c[0])).toMatchObject(
-      [
-        "[first] before cooked fetch",
-        "[first] before raw fetch (swr: false)",
-        "[second] before cooked fetch",
-        "[second] before raw fetch (swr: true)",
-        "[third] before cooked fetch",
-        "[third] before raw fetch (swr: false)",
-      ]
-    )
+    expect(log.mock.calls.map(c => c[0])).toMatchObject([
+      '[first] before cooked fetch',
+      '[first] before raw fetch (swr: false)',
+      '[second] before cooked fetch',
+      '[second] before raw fetch (swr: true)',
+      '[third] before cooked fetch',
+      '[third] before raw fetch (swr: false)',
+    ])
 
-    expect(two.data as {}).toEqual(one.data)
-    // expect(three.data).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
+    expect(one.data.headers).toMatchObject({label: 'first'})
+    expect(two.data.headers).toMatchObject({label: 'first'})
+    expect(three.data.headers).toMatchObject({label: 'third'})
+
+    expect(two.data).toEqual(one.data)
+    expect(three.data).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
     expect(two.headers).not.toEqual(one.headers)
     expect(two.status).toEqual(one.status)
     expect(two.headers).toEqual({
