@@ -18,8 +18,6 @@ jobs:
 
     - run: pnpm test:node
 
-    - run: echo 'https:'
-
     - run: pnpm test-server &
     - run: sleep 2
 
