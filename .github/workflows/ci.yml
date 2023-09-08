@@ -18,6 +18,8 @@ jobs:
 
     - run: pnpm test:node
 
+    - run: echo 'https:'
+
     - run: pnpm test-server &
     - run: sleep 2
 
@@ -32,3 +34,12 @@ jobs:
     - run: pnpm test:bun
 
     - run: pnpm test:pkg
+
+    - uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright
+        path: playwright-report
+    - name: print artifact url
+      if: always()
+      run: echo 'https://mmkal.com/artifact/${{github.repository}}/${{github.run_id}}/test-report'
