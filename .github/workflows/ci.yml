@@ -42,4 +42,4 @@ jobs:
         path: playwright-report
     - name: print artifact url
       if: always()
-      run: echo 'https://mmkal.com/artifact/${{github.repository}}/${{github.run_id}}/test-report'
+      run: echo 'https://mmkal.com/artifact/${{github.repository}}/${{github.run_id}}/playwright'
