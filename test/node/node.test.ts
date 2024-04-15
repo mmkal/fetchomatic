@@ -14,7 +14,7 @@ const cases = [
 ]
 
 cases.forEach(([name, fetch]) => {
-  test.describe(`${name} impl`, async () => {
+  test.describe(`${name} impl`, () => {
     createTestSuite({test, expect, fetch: fetch, fetchomatic, retry})
   })
 })
