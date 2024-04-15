@@ -56,6 +56,25 @@ export const defaultRetryConditions: RetryConditions = {
   ],
 }
 
+/** Merges two `RetryCondition`s together, including all properties from each */
+export const unionRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => ({
+  methods: [...new Set([...left.methods, ...right.methods])],
+  statuses: [...new Set([...left.statuses, ...right.statuses])],
+  errorCodes: [...new Set([...left.errorCodes, ...right.errorCodes])],
+})
+
+/** Merges two `RetryCondition`s together, including only properties that appear in both */
+export const intersectRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => {
+  const rightMethods = new Set(right.methods)
+  const rightStatuses = new Set(right.statuses)
+  const rightErrorCodes = new Set(right.errorCodes)
+  return {
+    methods: left.methods.filter(m => rightMethods.has(m)),
+    statuses: left.statuses.filter(s => rightStatuses.has(s)),
+    errorCodes: left.errorCodes.filter(c => rightErrorCodes.has(c)),
+  }
+}
+
 export const retryOnFailure = ({conditions = defaultRetryConditions} = {}): ShouldRetry => {
   const methods = new Set(conditions.methods)
   const statuses = new Set(conditions.statuses)
