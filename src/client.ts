@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {mergeRequestInits, parseHeaders} from './convert.js'
 import {withParser, type JsonType, type ResponseParser} from './parse.js'
 import {Methods, type BaseFetch, type Method} from './types.js'
@@ -59,7 +60,7 @@ export const client = <Parsers extends Record<string, ResponseParser<any>> = Rec
           )
           return {
             status: res.status,
-            data: await getData(res),
+            data: (await getData(res)) as never,
             headers: parseHeaders(res.headers),
             response: () => res,
           }

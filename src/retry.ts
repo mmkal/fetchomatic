@@ -12,7 +12,7 @@ export interface ShouldRetryOptions {
   basis: ShouldRetry
   fetch: BaseFetch
 }
-/* eslint-disable mmkal/@typescript-eslint/no-loop-func */
+/* eslint-disable @typescript-eslint/no-loop-func */
 export type ShouldRetry = (options: ShouldRetryOptions) => RetryInstruction
 
 export interface RetryInstruction {
@@ -253,7 +253,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
       init = {...init, headers}
       result = await resolvedFetch(input, init)
         .then((response): typeof result => ({ok: true, response}))
-        .catch((error): typeof result => ({ok: false, error}))
+        .catch((error: unknown): typeof result => ({ok: false, error: error as never}))
 
       const method = (init?.method as Method) || 'GET'
 
@@ -272,7 +272,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     } while (typeof shouldRetry.retryAfterMs === 'number')
 
     if (!result.ok) {
-      // eslint-disable-next-line mmkal/@typescript-eslint/no-throw-literal
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw result.error
     }
 

@@ -13,7 +13,7 @@ export interface ResponseParser<T> {
   json?: Parser<T>
 }
 
-export type JsonType<P extends ResponseParser<any>> = P extends {json: Parser<infer X>} ? X : never
+export type JsonType<P extends ResponseParser<unknown>> = P extends {json: Parser<infer X>} ? X : never
 
 export const withParser = <T>(fetch: BaseFetch, options: {parser: ResponseParser<T>}): BaseFetch & typeof options => {
   const wrapped: BaseFetch = async (...args) => {

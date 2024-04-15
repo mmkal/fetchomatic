@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {simplifyResponse} from './convert.js'
 import {withAfterResponse, withBeforeError, withBeforeRequest} from './hooks.js'
 import type {BaseFetch} from './types.js'

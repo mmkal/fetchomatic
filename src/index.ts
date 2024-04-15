@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {Client, ClientOptions} from './exports.js'
 import * as xports from './exports.js'
 import {client} from './exports.js'
@@ -21,13 +22,13 @@ type FetchomaticMethods = {
     ? NonNullable<(typeof xports)[K]> extends (fetch: BaseFetch, options?: infer Options) => any
       ? (options?: Options) => Fetchomatic
       : NonNullable<(typeof xports)[K]> extends (fetch: BaseFetch, options: infer Options) => any
-      ? (options: Options) => Fetchomatic
-      : never
+        ? (options: Options) => Fetchomatic
+        : never
     : K extends 'client'
-    ? <Parsers extends Record<string, ResponseParser<any>> = Record<string, ResponseParser<unknown>>>(
-        options?: ClientOptions<Parsers>,
-      ) => Client<Parsers>
-    : never
+      ? <Parsers extends Record<string, ResponseParser<any>> = Record<string, ResponseParser<unknown>>>(
+          options?: ClientOptions<Parsers>,
+        ) => Client<Parsers>
+      : never
 }
 
 type Chainable = {
@@ -48,7 +49,7 @@ export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
           [
             name,
             (options?: any) => {
-              const newFetch = xports[name as Chainable](fetch, options)
+              const newFetch = xports[name as Chainable](fetch, options as never)
               return fetchomatic(newFetch)
             },
           ],
@@ -56,7 +57,7 @@ export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
       }),
     ),
     {
-      client: (options?: any) => client(fetch, options),
+      client: (options?: any) => client(fetch, options as never),
       fetch,
     },
   ) as any as Fetchomatic

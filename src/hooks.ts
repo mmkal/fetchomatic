@@ -38,8 +38,9 @@ export type ErrorWrapper = (params: {
 export const withBeforeError = (fetch: BaseFetch, wrap: ErrorWrapper): BaseFetch => {
   return async (...args) => {
     const parsed = parseFetchArgs(args)
-    return fetch(...args).catch(error => {
-      throw wrap({parsed, args, error})
+    return fetch(...args).catch(async error => {
+      const wrapped = await wrap({parsed, args, error})
+      throw wrapped
     })
   }
 }

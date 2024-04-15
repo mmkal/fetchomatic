@@ -1,4 +1,4 @@
-/* eslint-disable mmkal/@typescript-eslint/consistent-type-imports */
+/* eslint-disable @typescript-eslint/consistent-type-imports */
 import type {Expect} from '@playwright/test'
 import type _express from 'express'
 import Keyv from 'keyv'
@@ -267,6 +267,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     expect([...map.entries()][0][1]).toEqual(expect.stringMatching(/{.*policy.*,.*response.*}/))
   })
 
+  // eslint-disable-next-line vitest/no-commented-out-tests
   // test.skip('errors', async () => {
   //   const myfetch = fetch
 
