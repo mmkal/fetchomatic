@@ -59,7 +59,7 @@
     "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
     "test:bun": "bun test test/bun",
     "test:pkg": "(cd test/pkg && pnpm add-local-fetchomatic) && TEST_DIR=test/pkg pnpm test",
-    "test-server": "ts-node test/server.ts",
+    "test-server": "tsx test/server.ts",
     "playwright": "playwright",
     "playwright:browsers": "playwright install --with-deps",
     "eslint": "eslint --max-warnings 0",
@@ -83,7 +83,7 @@
     "node-fetch": "^2.6.2",
     "np": "10.0.3",
     "strip-indent": "^4.0.0",
-    "ts-node": "^10.9.1",
+    "tsx": "4.7.2",
     "typescript": "5.0.4",
     "xstate": "^4.37.2",
     "zod": "^3.21.4"

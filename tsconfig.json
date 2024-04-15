@@ -1,8 +1,4 @@
 {
-  "ts-node": {
-    "transpileOnly": true,
-    "esm": true
-  },
   "compilerOptions": {
     "lib": [
       "ESNext",
@@ -10,7 +6,6 @@
     ],
     "target": "ES2022",
     "module": "ES2022",
-    "esModuleInterop": true,
     "strict": true,
     "noEmit": true,
     "noErrorTruncation": true,
