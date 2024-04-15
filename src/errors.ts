@@ -37,7 +37,7 @@ export class FetchomaticError extends Error {
     [K in CustomErrorCode]: (message?: string, options?: {cause?: unknown}) => never
   }
 
-  static get = Object.fromEntries(
+  static create = Object.fromEntries(
     customErrorCodes.map(code => [
       code,
       (message, options) => {

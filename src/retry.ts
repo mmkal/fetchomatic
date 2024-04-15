@@ -109,10 +109,10 @@ export const expBackoff: ShouldRetryExtender<{power: number; jitter?: Jitter}> =
   }
 
 export const capRetryTimeout: ShouldRetryExtender<{ms: number; behavior: 'limit' | 'disable-retry'}> =
-  ({ms, behavior}) =>
+  ({ms: upperLimit, behavior}) =>
   opts => {
     const previous = opts.basis(opts)
-    if (typeof previous.retryAfterMs !== 'number' || previous.retryAfterMs <= ms) {
+    if (typeof previous.retryAfterMs !== 'number' || previous.retryAfterMs <= upperLimit) {
       return previous
     }
 
@@ -120,14 +120,14 @@ export const capRetryTimeout: ShouldRetryExtender<{ms: number; behavior: 'limit'
       return {
         retryAfterMs: null,
         previous,
-        reason: `Retry disabled, cap ${ms}ms exceeded`,
+        reason: `Retry disabled, cap ${upperLimit}ms exceeded`,
       }
     }
 
     return {
-      retryAfterMs: ms,
+      retryAfterMs: upperLimit,
       previous,
-      reason: `Retry delay capped to ${ms}ms`,
+      reason: `Retry delay capped to ${upperLimit}ms`,
     }
   }
 
@@ -207,7 +207,7 @@ export const createShouldRetry = (...list: ShouldRetry[]) => {
   }, list[0] || noRetry)
 }
 
-interface MegeRetryOptions {
+export interface MegaRetryOptions {
   failureConditions?: RetryConditions
   firstRetryTimeoutMs?: number
   power?: number
@@ -217,7 +217,6 @@ interface MegeRetryOptions {
     ms: number
     behavior: 'limit' | 'disable-retry'
   }
-  maxTimeoutMs?: number
 }
 
 export const megaRetry = ({
@@ -227,7 +226,7 @@ export const megaRetry = ({
   maxRetries = Number.POSITIVE_INFINITY,
   jitter = fullJitter,
   capTimeout = {ms: Number.POSITIVE_INFINITY, behavior: 'limit'},
-}: MegeRetryOptions): ShouldRetry =>
+}: MegaRetryOptions): ShouldRetry =>
   createShouldRetry(
     retryOnFailure({conditions: failureConditions}),
     delayRetry({ms: firstRetryTimeoutMs}),
@@ -249,7 +248,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     do {
       const resolvedFetch = fetch
       const parsedArgs = parseFetchArgs([input, init])
-      const {headers} = shouldRetry?.request ? shouldRetry.request(parsedArgs) : parsedArgs
+      const {headers} = shouldRetry?.request?.(parsedArgs) || parsedArgs
       init = {...init, headers}
       result = await resolvedFetch(input, init)
         .then((response): typeof result => ({ok: true, response}))
