@@ -39,6 +39,7 @@ export const withBeforeError = (fetch: BaseFetch, wrap: ErrorWrapper): BaseFetch
   return async (...args) => {
     const parsed = parseFetchArgs(args)
     return fetch(...args).catch(async error => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const wrapped = await wrap({parsed, args, error})
       throw wrapped
     })

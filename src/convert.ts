@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // todo: do own module augmentation/use a different type then the default `RequestInit`
 // import 'next'
 import type {BaseFetch, Method} from './types.js'
@@ -26,8 +27,10 @@ export const parseFetchArgs = ([init, input]: Parameters<BaseFetch>): Simplified
     get method() {
       return (input?.method?.toUpperCase() || 'GET') as Method
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     get json() {
       const json = input?.body?.toString()
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return json ? JSON.parse(json) : null
     },
     get text() {
