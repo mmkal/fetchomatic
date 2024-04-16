@@ -12,7 +12,7 @@ const wrap = async () => {
     .filter(f => f.endsWith('.js'))
   distFiles.forEach(f => {
     const content = fs.readFileSync(f).toString()
-    fs.writeFileSync(f, content.replace(/\.js('|")/g, '.cjs$1'))
+    fs.writeFileSync(f, content.replaceAll(/\.js('|")/g, '.cjs$1'))
     fs.renameSync(f, f.replace(/\.js$/, '.cjs'))
   })
   const mod = require('../dist/cjs/index.cjs')

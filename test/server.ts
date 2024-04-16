@@ -4,9 +4,9 @@ import * as url from 'node:url'
 export const runServer = async () => {
   const app = express()
 
-  app.get('/health', async (req, res) => res.status(200).send({ok: true}))
+  app.get('/health', (req, res) => res.status(200).send({ok: true}))
 
-  app.use('/redirect', async (req, res) => {
+  app.use('/redirect', (req, res) => {
     const times = Number(req.query.times || 0)
     const redirects = Number(req.query.redirects || 0)
     const query = {
@@ -19,6 +19,7 @@ export const runServer = async () => {
     res.redirect(`${pathname}?${new URLSearchParams(query).toString()}`)
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.use(/\/(get|post|put)/, async (req, res) => {
     const failureTarget = Number(req.headers.request_failures)
     const retryNumber = Number(req.headers.retry_number || 1) // todo: figure out if there's a standardized header for this

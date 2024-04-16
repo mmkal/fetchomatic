@@ -1,16 +1,11 @@
 {
-  "ts-node": {
-    "transpileOnly": true,
-    "esm": true
-  },
   "compilerOptions": {
     "lib": [
       "ESNext",
       "DOM"
     ],
     "target": "ES2022",
-    "module": "ES2022",
-    "esModuleInterop": true,
+    "module": "NodeNext",
     "strict": true,
     "noEmit": true,
     "noErrorTruncation": true,

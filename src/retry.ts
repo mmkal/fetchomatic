@@ -12,7 +12,7 @@ export interface ShouldRetryOptions {
   basis: ShouldRetry
   fetch: BaseFetch
 }
-/* eslint-disable mmkal/@typescript-eslint/no-loop-func */
+/* eslint-disable @typescript-eslint/no-loop-func */
 export type ShouldRetry = (options: ShouldRetryOptions) => RetryInstruction
 
 export interface RetryInstruction {
@@ -54,6 +54,25 @@ export const defaultRetryConditions: RetryConditions = {
     'ENETUNREACH',
     'EAI_AGAIN',
   ],
+}
+
+/** Merges two `RetryCondition`s together, including all properties from each */
+export const unionRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => ({
+  methods: [...new Set([...left.methods, ...right.methods])],
+  statuses: [...new Set([...left.statuses, ...right.statuses])],
+  errorCodes: [...new Set([...left.errorCodes, ...right.errorCodes])],
+})
+
+/** Merges two `RetryCondition`s together, including only properties that appear in both */
+export const intersectRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => {
+  const rightMethods = new Set(right.methods)
+  const rightStatuses = new Set(right.statuses)
+  const rightErrorCodes = new Set(right.errorCodes)
+  return {
+    methods: left.methods.filter(m => rightMethods.has(m)),
+    statuses: left.statuses.filter(s => rightStatuses.has(s)),
+    errorCodes: left.errorCodes.filter(c => rightErrorCodes.has(c)),
+  }
 }
 
 export const retryOnFailure = ({conditions = defaultRetryConditions} = {}): ShouldRetry => {
@@ -109,10 +128,10 @@ export const expBackoff: ShouldRetryExtender<{power: number; jitter?: Jitter}> =
   }
 
 export const capRetryTimeout: ShouldRetryExtender<{ms: number; behavior: 'limit' | 'disable-retry'}> =
-  ({ms, behavior}) =>
+  ({ms: upperLimit, behavior}) =>
   opts => {
     const previous = opts.basis(opts)
-    if (typeof previous.retryAfterMs !== 'number' || previous.retryAfterMs <= ms) {
+    if (typeof previous.retryAfterMs !== 'number' || previous.retryAfterMs <= upperLimit) {
       return previous
     }
 
@@ -120,14 +139,14 @@ export const capRetryTimeout: ShouldRetryExtender<{ms: number; behavior: 'limit'
       return {
         retryAfterMs: null,
         previous,
-        reason: `Retry disabled, cap ${ms}ms exceeded`,
+        reason: `Retry disabled, cap ${upperLimit}ms exceeded`,
       }
     }
 
     return {
-      retryAfterMs: ms,
+      retryAfterMs: upperLimit,
       previous,
-      reason: `Retry delay capped to ${ms}ms`,
+      reason: `Retry delay capped to ${upperLimit}ms`,
     }
   }
 
@@ -207,7 +226,7 @@ export const createShouldRetry = (...list: ShouldRetry[]) => {
   }, list[0] || noRetry)
 }
 
-interface MegeRetryOptions {
+export interface MegaRetryOptions {
   failureConditions?: RetryConditions
   firstRetryTimeoutMs?: number
   power?: number
@@ -217,7 +236,6 @@ interface MegeRetryOptions {
     ms: number
     behavior: 'limit' | 'disable-retry'
   }
-  maxTimeoutMs?: number
 }
 
 export const megaRetry = ({
@@ -227,7 +245,7 @@ export const megaRetry = ({
   maxRetries = Number.POSITIVE_INFINITY,
   jitter = fullJitter,
   capTimeout = {ms: Number.POSITIVE_INFINITY, behavior: 'limit'},
-}: MegeRetryOptions): ShouldRetry =>
+}: MegaRetryOptions): ShouldRetry =>
   createShouldRetry(
     retryOnFailure({conditions: failureConditions}),
     delayRetry({ms: firstRetryTimeoutMs}),
@@ -249,11 +267,11 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     do {
       const resolvedFetch = fetch
       const parsedArgs = parseFetchArgs([input, init])
-      const {headers} = shouldRetry?.request ? shouldRetry.request(parsedArgs) : parsedArgs
+      const {headers} = shouldRetry?.request?.(parsedArgs) || parsedArgs
       init = {...init, headers}
       result = await resolvedFetch(input, init)
         .then((response): typeof result => ({ok: true, response}))
-        .catch((error): typeof result => ({ok: false, error}))
+        .catch((error: unknown): typeof result => ({ok: false, error: error as never}))
 
       const method = (init?.method as Method) || 'GET'
 
@@ -272,7 +290,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     } while (typeof shouldRetry.retryAfterMs === 'number')
 
     if (!result.ok) {
-      // eslint-disable-next-line mmkal/@typescript-eslint/no-throw-literal
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw result.error
     }
 

@@ -41,7 +41,11 @@ const kvwrap = (keyv: KeyvLike<string>) => {
     async get(url: URL) {
       const json = await keyv.get(url.toString())
       if (!json) return null
-      const {policy, response, expiresAt} = JSON.parse(json)
+      const {policy, response, expiresAt} = JSON.parse(json) as {
+        expiresAt: number
+        policy: unknown
+        response: [BodyInit, {}]
+      }
       if (expiresAt < Date.now()) {
         // todo: warn user they're not expiring old data?
         return null

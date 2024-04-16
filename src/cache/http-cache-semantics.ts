@@ -1,11 +1,13 @@
-/* eslint-disable mmkal/@typescript-eslint/restrict-plus-operands */
+/* eslint-disable @typescript-eslint/restrict-plus-operands */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable guard-for-in */
-/* eslint-disable mmkal/@typescript-eslint/no-dynamic-delete */
+/* eslint-disable @typescript-eslint/no-dynamic-delete */
 /* eslint-disable no-negated-condition */
 /* eslint-disable no-eq-null */
 /* eslint-disable eqeqeq */
 /* eslint-disable no-lonely-if */
-/* eslint-disable mmkal/@typescript-eslint/prefer-optional-chain */
+/* eslint-disable @typescript-eslint/prefer-optional-chain */
 /* eslint-disable complexity */
 // https://httpwg.org/specs/rfc7234.html
 // https://github.com/nodejs/undici/issues/1146
@@ -76,7 +78,7 @@ function parseCacheControl(header: string | undefined) {
   const parts = header.trim().split(/,/)
   for (const part of parts) {
     const [k, v] = part.split(/=/, 2)
-    cc[k.trim()] = v === undefined ? true : v.trim().replace(/^"|"$/g, '')
+    cc[k.trim()] = v === undefined ? true : v.trim().replaceAll(/^"|"$/g, '')
   }
 
   return cc
@@ -139,8 +141,8 @@ export class CachePolicy {
 
     this._responseTime = this.now()
     this._isShared = shared !== false
-    this._cacheHeuristic = undefined !== cacheHeuristic ? cacheHeuristic : 0.1 // 10% matches IE
-    this._immutableMinTtl = undefined !== immutableMinTimeToLive ? immutableMinTimeToLive : 24 * 3600 * 1000
+    this._cacheHeuristic = undefined === cacheHeuristic ? 0.1 : cacheHeuristic // 10% matches IE
+    this._immutableMinTtl = undefined === immutableMinTimeToLive ? 24 * 3600 * 1000 : immutableMinTimeToLive
 
     this._status = 'status' in res ? res.status : 200
     this._resHeaders = res.headers
@@ -455,7 +457,7 @@ export class CachePolicy {
     this._responseTime = obj.t
     this._isShared = obj.sh
     this._cacheHeuristic = obj.ch
-    this._immutableMinTtl = obj.imm !== undefined ? obj.imm : 24 * 3600 * 1000
+    this._immutableMinTtl = obj.imm === undefined ? 24 * 3600 * 1000 : obj.imm
     this._status = obj.st
     this._resHeaders = obj.resh
     this._rescc = obj.rescc
