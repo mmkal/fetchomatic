@@ -1,6 +1,6 @@
 {
   "name": "fetchomatic",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Wrap fetch with retries, timeout, logging, caching, error handling and more",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
