@@ -45,7 +45,6 @@
   ],
   "author": "fetch",
   "license": "ISC",
-  "bin": "dist/bin.js",
   "files": [
     "dist/cjs",
     "dist/esm-wrapper.mjs",
