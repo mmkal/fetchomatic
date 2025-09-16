@@ -21,11 +21,35 @@ Aims:
     - `keyv` for caching
 1. Be un-surprising and honest.
 
-## Obligatory CommonJS vs ESM stance
+## Usage
 
-I want this to be usable from CommonJS or ESM, and avoid major pitfalls. So, the main export is commonjs, and there's an ESM wrapper which exposes each export. I respect [sindresorhus' opinionated-ness](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) but there are many people who are still using CommonJS at time of writing. ESM can import CommonJS too, so the friendlier thing to do - for now, IMHO - is wrap. The default import (`require('fetchomatic')` or `import('fetchomatic')` or `import {...} from 'fetchomatic'`) minimises [the dual-package hazard](https://nodejs.org/api/packages.html#dual-package-hazard) by wrapping. Right now, there's no ES Modules JavaScript other than the wrapper file. This _might_ affect things like tree-shaking, but the library is pretty small anyway.
+```ts
+const {fetch: myfetch} = fetchomatic(fetch).withRetry({
+    shouldRetry: retry.createShouldRetry(
+    retry.retryOnFailure(),
+    retry.delayRetry({ms: 10}),
+    retry.expBackoff({power: 2}),
+    retry.capRetryAttempts({attempts: 4}),
+    retry.logRetry({logger: {...console, warn, error}}),
+    opts => {
+        const previous = opts.basis(opts)
+        if (typeof previous.retryAfterMs !== 'number') {
+            return previous
+        }
 
-## Development
+        return {
+            ...previous,
+            request: parsed => {
+                const headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
+                return {headers}
+            },
+        }
+    },
+  ),
+})
+
+await myfetch('https://example.com', {headers: {'user-agent': 'abc'}}) // myfetch can be used exactly like the built-in `fetch`
+```
 
 Notes on how this implemented.
 

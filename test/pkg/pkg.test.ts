@@ -1,17 +1,10 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import {test, expect} from '@playwright/test'
 import {fetchomatic, retry} from 'fetchomatic'
-import {createRequire} from 'module'
 import {createTestSuite} from '../suite.js'
 
-const require = createRequire(import.meta.url)
 test.describe(`import pkg`, () => {
   createTestSuite({test, expect, fetch: fetch, fetchomatic, retry})
-})
-
-test.describe(`require pkg`, () => {
-  const cjs = require('fetchomatic') as typeof import('fetchomatic')
-  createTestSuite({test, expect, fetch: fetch, fetchomatic: cjs.fetchomatic, retry: cjs.retry})
 })
 
 let asyncModule: typeof import('fetchomatic')
