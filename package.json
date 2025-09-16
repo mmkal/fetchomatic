@@ -53,9 +53,9 @@
   "packageManager": "pnpm@8.15.6",
   "scripts": {
     "test": "playwright test",
-    "test-all": "pnpm build && concurrently 'npm:test:*'",
+    "test-all": "pnpm build && curl 'http://localhost:7001/health' && concurrently 'npm:test:*'",
     "test:node": "playwright test",
-    "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read --trace-ops",
+    "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read",
     "test:bun": "bun test test/bun",
     "test:pkg": "(cd test/pkg && pnpm add-local-fetchomatic) && TEST_DIR=test/pkg pnpm test",
     "test-server": "tsx test/server.ts",
@@ -71,11 +71,11 @@
     "@types/node": "^18.16.3",
     "concurrently": "^8.2.0",
     "eslint": "8.57.0",
-    "eslint-plugin-mmkal": "0.7.0",
+    "eslint-plugin-mmkal": "https://pkg.pr.new/mmkal/eslint-plugin-codegen/eslint-plugin-mmkal@a116067",
     "expect-type": "^0.15.0",
     "express": "^4.18.2",
     "isomorphic-fetch": "^3.0.0",
-    "keyv": "^4.5.3",
+    "keyv": "5.5.1",
     "make-fetch-happen": "^11.1.1",
     "minipass-fetch": "^3.0.3",
     "next": "^13.4.1",
@@ -85,6 +85,6 @@
     "tsx": "4.7.2",
     "typescript": "5.0.4",
     "xstate": "^4.37.2",
-    "zod": "^3.21.4"
+    "zod": "4.0.17"
   }
 }

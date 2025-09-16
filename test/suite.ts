@@ -23,7 +23,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     return Object.assign(fn, {mock: {calls}, clear: () => calls.splice(0, calls.length)})
   }
 
-  const getRetryHelpers = () => {
+  const testRetryHelpers = () => {
     const warn = mockFn()
     const error = mockFn()
     const {fetch: myfetch} = fetchomatic(fetch).withRetry({
@@ -53,7 +53,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   }
 
   test('retry succeed', async () => {
-    const {warn, error, myfetch} = getRetryHelpers()
+    const {warn, error, myfetch} = testRetryHelpers()
     const good = await myfetch('http://localhost:7001/get', {headers: {request_failures: '3'}})
 
     await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
@@ -63,7 +63,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   })
 
   test('retry give up', async () => {
-    const {warn, error, myfetch} = getRetryHelpers()
+    const {warn, error, myfetch} = testRetryHelpers()
     const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
     expect(bad.status).toBe(500)
     expect(await bad.json()).toMatchObject({
@@ -87,19 +87,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
 
     const bad = await myfetch('http://localhost:7001/get?notfoo=x')
     await expect(bad.json().catch(e => e.message)).resolves.toEqual(
-      JSON.stringify(
-        [
-          {
-            code: 'invalid_type',
-            expected: 'string',
-            received: 'undefined',
-            path: ['query', 'foo'],
-            message: 'Required',
-          },
-        ],
-        null,
-        2,
-      ).trim(),
+      `✖ Invalid input: expected string, received undefined → at query.foo`,
     )
   })
 
@@ -184,7 +172,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     expect(res.data).toEqual({query: {x: 'yy'}})
 
     const bad = async () => client.get.json('/get', {query: {a: 'bb'}}).catch(e => e.message)
-    expect(await bad()).toMatch(/invalid_type.*expected.*string.*received.*undefined.*path.*query.*x/s)
+    expect(await bad()).toMatch(/Invalid input: expected string, received undefined → at query.x/s)
   })
 
   test('stale while revalidate', async () => {
@@ -213,8 +201,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
         return args
       })
       .withCache({
-        // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
+        keyv: new Keyv({store: map}),
       })
       .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
       .client({
