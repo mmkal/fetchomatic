@@ -9,9 +9,4 @@ export default defineConfig({
   fullyParallel: true,
   outputDir: path.join(reportDir, 'output'),
   reporter: [['html', {outputFolder: path.join(reportDir, 'html')}]],
-  webServer: {
-    command: "pnpm run test-server",
-    url: 'http://localhost:7001/health',
-    reuseExistingServer: true,
-  },
 })

@@ -24,6 +24,7 @@
     "*.md"
   ],
   "exclude": [
+    "test/pkg",
     "test/deno",
     "test/bun"
   ]

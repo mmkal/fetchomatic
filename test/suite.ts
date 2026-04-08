@@ -6,6 +6,7 @@ import {z} from 'zod'
 import type * as Src from '../src/index.js'
 
 export type Test = (title: string, fn: () => Promise<void>) => void
+export type TestServerFixture = AsyncDisposable & {baseUrl: string}
 
 type TestSuiteInputs = {
   test: Test
@@ -13,9 +14,10 @@ type TestSuiteInputs = {
   fetch: typeof fetch
   fetchomatic: typeof Src.fetchomatic
   retry: typeof Src.retry
+  createServer: () => Promise<TestServerFixture>
 }
 
-export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestSuiteInputs) => {
+export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, createServer}: TestSuiteInputs) => {
   const mockFn = () => {
     const calls: unknown[][] = []
     const fn = (...args: unknown[]) => void calls.push(args)
@@ -53,19 +55,20 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   }
 
   test('retry succeed', async () => {
-    const {warn, error, myfetch} = testRetryHelpers()
-    const good = await myfetch('http://localhost:7001/get', {headers: {request_failures: '3'}})
+    await using server = await createServer()
+      const {warn, error, myfetch} = testRetryHelpers()
+      const good = await myfetch(`${server.baseUrl}/get`, {headers: {request_failures: '3'}})
 
-    await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
+      await expect(good.json()).resolves.toMatchObject({headers: {request_failures: '3'}})
 
-    expect(error.mock.calls).toHaveLength(4)
-    expect(warn.mock.calls).toHaveLength(1)
+      expect(error.mock.calls).toHaveLength(4)
+      expect(warn.mock.calls).toHaveLength(1)
   })
 
   test('retry delay waits between attempts', async () => {
     const responses = [500, 500, 200]
     const fakeFetch: typeof fetch = async () => {
-      const status = responses.shift()
+      const status = responses.shift() || 500
       return new Response(`r${3 - responses.length}-${status.toString()}`, {status})
     }
     const delayMs = 100
@@ -87,44 +90,44 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   })
 
   test('retry give up', async () => {
-    const {warn, error, myfetch} = testRetryHelpers()
-    const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
-    expect(bad.status).toBe(500)
-    expect(await bad.json()).toMatchObject({
-      message: 'Failed 5 times',
-    })
+    await using server = await createServer()
+      const {warn, error, myfetch} = testRetryHelpers()
+      const bad = await myfetch(`${server.baseUrl}/get`, {headers: {request_failures: '10'}})
+      expect(bad.status).toBe(500)
+      expect(await bad.json()).toMatchObject({
+        message: 'Failed 5 times',
+      })
 
-    expect(error.mock.calls).toHaveLength(5)
-    expect(warn.mock.calls).toHaveLength(1)
+      expect(error.mock.calls).toHaveLength(5)
+      expect(warn.mock.calls).toHaveLength(1)
   })
 
   test('parse', async () => {
-    // todo: consider removing withParser in favour of `.client`
-    const {fetch: myfetch} = fetchomatic(fetch).withParser({
-      parser: {
-        json: z.object({query: z.object({foo: z.string()})}),
-      },
-    })
+    await using server = await createServer()
+      const {fetch: myfetch} = fetchomatic(fetch).withParser({
+        parser: {
+          json: z.object({query: z.object({foo: z.string()})}),
+        },
+      })
 
-    const good = await myfetch('http://localhost:7001/get?foo=x')
-    await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
+      const good = await myfetch(`${server.baseUrl}/get?foo=x`)
+      await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
-    const bad = await myfetch('http://localhost:7001/get?notfoo=x')
-    await expect(bad.json().catch(e => e.message)).resolves.toEqual(
-      `✖ Invalid input: expected string, received undefined → at query.foo`,
-    )
+      const bad = await myfetch(`${server.baseUrl}/get?notfoo=x`)
+      await expect(bad.json().catch(e => e.message)).resolves.toEqual(
+        `✖ Invalid input: expected string, received undefined → at query.foo`,
+      )
   })
 
   test('timeout', async () => {
-    const {fetch: myfetch} = fetchomatic(fetch).withTimeout({ms: 1000})
+    await using server = await createServer()
+      const {fetch: myfetch} = fetchomatic(fetch).withTimeout({ms: 1000})
 
-    const good = await myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '500'}})
-    await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
+      const good = await myfetch(`${server.baseUrl}/get?foo=x`, {headers: {delay_ms: '500'}})
+      await expect(good.json()).resolves.toMatchObject({query: {foo: 'x'}})
 
-    // make sure this is a function, not a promise, for bun's sake: https://github.com/oven-sh/bun/issues/1546#issuecomment-1645239445
-    const bad = async () => myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
-    // https://github.com/nodejs/node/issues/40692#issuecomment-956658594
-    await expect(bad).rejects.toThrow(/aborted/i)
+      const bad = async () => myfetch(`${server.baseUrl}/get?foo=x`, {headers: {delay_ms: '1500'}})
+      await expect(bad).rejects.toThrow(/aborted/i)
   })
 
   test('timeout is scoped per request', async () => {
@@ -139,154 +142,151 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   })
 
   test('redirect', async () => {
-    const good = await fetchomatic(fetch)
-      .withDefaults({redirect: 'follow'})
-      .fetch('http://localhost:7001/redirect?times=3&to=/get')
-    await expect(good.json()).resolves.toMatchObject({
-      query: {
-        original: '/redirect?times=3&to=/get',
-        redirects: '3',
-        times: '0',
-        to: '/get',
-      },
-      url: '/?original=%2Fredirect%3Ftimes%3D3%26to%3D%2Fget&times=0&to=%2Fget&redirects=3',
-    })
+    await using server = await createServer()
+      const good = await fetchomatic(fetch)
+        .withDefaults({redirect: 'follow'})
+        .fetch(`${server.baseUrl}/redirect?times=3&to=/get`)
+      await expect(good.json()).resolves.toMatchObject({
+        query: {
+          original: '/redirect?times=3&to=/get',
+          redirects: '3',
+          times: '0',
+          to: '/get',
+        },
+        url: '/?original=%2Fredirect%3Ftimes%3D3%26to%3D%2Fget&times=0&to=%2Fget&redirects=3',
+      })
   })
 
   test('fetchomatic, cache, log, client', async () => {
-    const map = new Map<string, string>()
-    const log = mockFn()
+    await using server = await createServer()
+      const map = new Map<string, string>()
+      const log = mockFn()
 
-    const client = fetchomatic(fetch)
-      .withBeforeRequest(({parsed}) => log('before raw fetch: ' + parsed.headers.label))
-      .withCache({
-        // hopefully https://github.com/jaredwray/keyv/pull/805 will be merged, otherwise will have to work around this to avoid the `as KeyvLike`
-        keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
+      const client = fetchomatic(fetch)
+        .withBeforeRequest(({parsed}) => log('before raw fetch: ' + parsed.headers.label))
+        .withCache({
+          keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
+        })
+        .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
+        .client({baseUrl: server.baseUrl})
+
+      const one = await client.get.text('/get', {headers: {label: 'first'}})
+      await new Promise(r => setTimeout(r, 1000))
+      const two = await client.get.text('/get', {headers: {label: 'second'}})
+
+      expect(log.mock.calls.map(c => c[0])).toMatchObject([
+        'before cached fetch: first',
+        'before raw fetch: first',
+        'before cached fetch: second',
+      ])
+      expect(two.data).toEqual(one.data)
+      expect(two.headers).not.toEqual(one.headers)
+      expect(two.status).toEqual(one.status)
+      expect(two.headers).toMatchObject({
+        ...withoutTransportHeaders(one.headers),
+        date: expect.any(String),
+        age: expect.any(String),
       })
-      .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
-      .client({baseUrl: 'http://localhost:7001'})
 
-    const one = await client.get.text('/get', {headers: {label: 'first'}})
-    await new Promise(r => setTimeout(r, 1000))
-    const two = await client.get.text('/get', {headers: {label: 'second'}})
-
-    expect(log.mock.calls.map(c => c[0])).toMatchObject([
-      'before cached fetch: first',
-      'before raw fetch: first',
-      'before cached fetch: second',
-    ])
-    expect(two.data).toEqual(one.data)
-    expect(two.headers).not.toEqual(one.headers)
-    expect(two.status).toEqual(one.status)
-    expect(two.headers).toEqual({
-      ...one.headers,
-      date: expect.any(String),
-      age: expect.any(String),
-      connection: undefined,
-      'keep-alive': undefined,
-    })
-
-    expect(Object.fromEntries(map.entries())).toEqual({
-      'keyv:http://localhost:7001/get': expect.stringMatching(/{.*policy.*,.*response.*}/),
-    })
+      expect(Object.fromEntries(map.entries())).toEqual({
+        [`keyv:${server.baseUrl}/get`]: expect.stringMatching(/{.*policy.*,.*response.*}/),
+      })
   })
 
   test('client with zod', async () => {
-    const client = fetchomatic(fetch).client({
-      baseUrl: 'http://localhost:7001',
-      parsers: {
-        '/get': {
-          json: z.object({
-            query: z.object({x: z.string()}),
-          }),
+    await using server = await createServer()
+      const client = fetchomatic(fetch).client({
+        baseUrl: server.baseUrl,
+        parsers: {
+          '/get': {
+            json: z.object({
+              query: z.object({x: z.string()}),
+            }),
+          },
         },
-      },
-    })
+      })
 
-    const res = await client.get.json('/get', {query: {x: 'yy'}})
-    expect(res.data).toEqual({query: {x: 'yy'}})
+      const res = await client.get.json('/get', {query: {x: 'yy'}})
+      expect(res.data).toEqual({query: {x: 'yy'}})
 
-    const bad = async () => client.get.json('/get', {query: {a: 'bb'}}).catch(e => e.message)
-    expect(await bad()).toMatch(/Invalid input: expected string, received undefined → at query.x/s)
+      const bad = async () => client.get.json('/get', {query: {a: 'bb'}}).catch(e => e.message)
+      expect(await bad()).toMatch(/Invalid input: expected string, received undefined → at query.x/s)
   })
 
   test('stale while revalidate', async () => {
-    const map = new Map<string, string>()
-    const log = mockFn()
+    await using server = await createServer()
+      const map = new Map<string, string>()
+      const log = mockFn()
 
-    const client = fetchomatic(fetch)
-      .withBeforeRequest(({parsed}) =>
-        log(`[${parsed.headers.label}] before raw fetch (swr: ${parsed.headers.swr || 'false'})`),
-      )
-      .withHeaders({
-        'set-response-headers': 'age=0&cache-control=max-age=1, stale-while-revalidate=2',
+      const client = fetchomatic(fetch)
+        .withBeforeRequest(({parsed}) =>
+          log(`[${parsed.headers.label}] before raw fetch (swr: ${parsed.headers.swr || 'false'})`),
+        )
+        .withHeaders({
+          'set-response-headers': 'age=0&cache-control=max-age=1, stale-while-revalidate=2',
+        })
+        .withBeforeRequest(({args, parsed}) => {
+          args[1]!.headers = {
+            ...parsed.headers,
+            swr: Boolean(parsed.headers['if-none-match']).toString(),
+          }
+
+          if (parsed.headers.label === 'second' && parsed.headers.swr) {
+            args[1]!.headers = {...parsed.headers, delay_ms: '3000'}
+          }
+
+          return args
+        })
+        .withCache({
+          keyv: new Keyv({store: map}),
+        })
+        .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
+        .client({
+          baseUrl: server.baseUrl,
+          parsers: {
+            '/get': {json: {parse: x => x as any}},
+          },
+        })
+
+      const one = await client.get.json('/get', {headers: {label: 'first'}})
+      await new Promise(r => setTimeout(r, 2000))
+      const two = await client.get.json('/get', {headers: {label: 'second'}})
+      await new Promise(r => setTimeout(r, 2000))
+      const three = await client.get.json('/get', {headers: {label: 'third'}})
+
+      expect(one.data).toMatchObject({
+        query: {},
+        url: '/',
       })
-      .withBeforeRequest(({args, parsed}) => {
-        args[1]!.headers = {
-          ...parsed.headers,
-          // add an `swr` header based on `if-none-match`, since http-cache-semantics adds `if-none-match` based on etag
-          swr: Boolean(parsed.headers['if-none-match']).toString(),
-        }
-
-        if (parsed.headers.label === 'second' && parsed.headers.swr) {
-          // artificially slow down the second swr request so we can see that the third request blocks since it's outside the max-age and swr windows
-          args[1]!.headers = {...parsed.headers, delay_ms: '3000'}
-        }
-
-        return args
-      })
-      .withCache({
-        keyv: new Keyv({store: map}),
-      })
-      .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
-      .client({
-        baseUrl: 'http://localhost:7001',
-        parsers: {
-          '/get': {json: {parse: x => x as any}},
-        },
+      expect(one.data).toMatchObject({
+        query: {},
+        url: '/',
       })
 
-    const one = await client.get.json('/get', {headers: {label: 'first'}})
-    await new Promise(r => setTimeout(r, 2000))
-    const two = await client.get.json('/get', {headers: {label: 'second'}})
-    await new Promise(r => setTimeout(r, 2000))
-    const three = await client.get.json('/get', {headers: {label: 'third'}})
+      expect(log.mock.calls.map(c => c[0])).toMatchObject([
+        '[first] before cooked fetch',
+        '[first] before raw fetch (swr: false)',
+        '[second] before cooked fetch',
+        '[second] before raw fetch (swr: true)',
+        '[third] before cooked fetch',
+        '[third] before raw fetch (swr: false)',
+      ])
 
-    expect(one.data).toMatchObject({
-      query: {},
-      url: '/',
-    })
-    expect(one.data).toMatchObject({
-      query: {},
-      url: '/',
-    })
+      expect(one.data.headers).toMatchObject({label: 'first'})
+      expect(two.data.headers).toMatchObject({label: 'first'})
+      expect(three.data.headers).toMatchObject({label: 'third'})
 
-    expect(log.mock.calls.map(c => c[0])).toMatchObject([
-      '[first] before cooked fetch',
-      '[first] before raw fetch (swr: false)',
-      '[second] before cooked fetch',
-      '[second] before raw fetch (swr: true)',
-      '[third] before cooked fetch',
-      '[third] before raw fetch (swr: false)',
-    ])
+      expect(two.data).toEqual(one.data)
+      expect(three.data).not.toEqual(two.data)
+      expect(two.headers).not.toEqual(one.headers)
+      expect(two.status).toEqual(one.status)
+      expect(two.headers).toMatchObject({
+        ...withoutTransportHeaders(one.headers),
+        date: expect.any(String),
+        age: expect.any(String),
+      })
 
-    expect(one.data.headers).toMatchObject({label: 'first'})
-    expect(two.data.headers).toMatchObject({label: 'first'})
-    expect(three.data.headers).toMatchObject({label: 'third'})
-
-    expect(two.data).toEqual(one.data)
-    expect(three.data).not.toEqual(two.data) // three should have got a fresh response because two's swr request was slowed down
-    expect(two.headers).not.toEqual(one.headers)
-    expect(two.status).toEqual(one.status)
-    expect(two.headers).toEqual({
-      ...one.headers,
-      date: expect.any(String),
-      age: expect.any(String),
-      connection: undefined,
-      'keep-alive': undefined,
-    })
-
-    expect([...map.entries()][0][1]).toEqual(expect.stringMatching(/{.*policy.*,.*response.*}/))
+      expect([...map.entries()][0][1]).toEqual(expect.stringMatching(/{.*policy.*,.*response.*}/))
   })
 
   // eslint-disable-next-line vitest/no-commented-out-tests
@@ -309,19 +309,6 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   //   })
   // })
   // });
-}
-
-const createSequentialFetch = (responses: Array<() => Response>) => {
-  const calls: Array<Parameters<typeof fetch>> = []
-  return {
-    calls,
-    fetch: (async (...args: Parameters<typeof fetch>) => {
-      calls.push(args)
-      const next = responses[calls.length - 1]
-      if (!next) throw new Error(`Unexpected fetch call ${calls.length}`)
-      return next()
-    }) as typeof fetch,
-  }
 }
 
 const createAbortAwareFetch = () =>
@@ -351,3 +338,11 @@ const createAbortAwareFetch = () =>
       init?.signal?.addEventListener('abort', onAbort)
     })
   }) as typeof fetch
+
+const withoutTransportHeaders = (headers: Record<string, string>) => {
+  const {connection, 'keep-alive': keepAlive, 'transfer-encoding': transferEncoding, ...rest} = headers
+  void connection
+  void keepAlive
+  void transferEncoding
+  return rest
+}

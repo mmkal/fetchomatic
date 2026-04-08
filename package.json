@@ -51,7 +51,7 @@
   "packageManager": "pnpm@8.15.6",
   "scripts": {
     "test": "playwright test",
-    "test-all": "pnpm build && curl 'http://localhost:7001/health' && concurrently 'npm:test:*'",
+    "test-all": "pnpm build && concurrently 'npm:test:*'",
     "test:node": "playwright test",
     "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read",
     "test:bun": "bun test test/bun",
@@ -66,7 +66,8 @@
   "devDependencies": {
     "@playwright/test": "^1.36.1",
     "@types/express": "^4.17.17",
-    "@types/node": "^18.16.3",
+    "@types/node": "^22.15.30",
+    "@whatwg-node/server": "^0.10.18",
     "concurrently": "^8.2.0",
     "eslint": "8.57.0",
     "eslint-plugin-mmkal": "^0.11.3",
@@ -80,8 +81,8 @@
     "node-fetch": "^2.6.2",
     "np": "10.0.3",
     "strip-indent": "^4.0.0",
-    "tsx": "4.7.2",
-    "typescript": "5.0.4",
+    "tsx": "4.20.6",
+    "typescript": "^5.6.3",
     "xstate": "^4.37.2",
     "zod": "4.0.17"
   }
