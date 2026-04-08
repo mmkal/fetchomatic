@@ -62,6 +62,30 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     expect(warn.mock.calls).toHaveLength(1)
   })
 
+  test('retry delay waits between attempts', async () => {
+    const responses = [500, 500, 200]
+    const fakeFetch: typeof fetch = async () => {
+      const status = responses.shift()
+      return new Response(`r${3 - responses.length}-${status.toString()}`, {status})
+    }
+    const delayMs = 100
+    const {fetch: myfetch} = fetchomatic(fakeFetch).withRetry({
+      shouldRetry: retry.createShouldRetry(
+        retry.retryOnFailure(),
+        retry.delayRetry({ms: delayMs}),
+        retry.capRetryAttempts({attempts: 2}),
+      ),
+    })
+
+    const start = Date.now()
+    const response = await myfetch('http://example.com/retry')
+    const elapsedMs = Date.now() - start
+
+    expect(response.status).toBe(200)
+    expect(elapsedMs).toBeGreaterThanOrEqual(delayMs * 2 - 20)
+    expect(responses).toHaveLength(0)
+  })
+
   test('retry give up', async () => {
     const {warn, error, myfetch} = testRetryHelpers()
     const bad = await myfetch('http://localhost:7001/get', {headers: {request_failures: '10'}}) // Our 4 retries won't be enough, this should fail
@@ -101,6 +125,17 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
     const bad = async () => myfetch('http://localhost:7001/get?foo=x', {headers: {delay_ms: '1500'}})
     // https://github.com/nodejs/node/issues/40692#issuecomment-956658594
     await expect(bad).rejects.toThrow(/aborted/i)
+  })
+
+  test('timeout is scoped per request', async () => {
+    const {fetch: myfetch} = fetchomatic(createAbortAwareFetch()).withTimeout({ms: 100})
+
+    const first = await myfetch('http://example.com/timeout', {headers: {delay_ms: '10'}})
+    expect(first.status).toBe(200)
+
+    await new Promise(r => setTimeout(r, 150))
+
+    await expect(myfetch('http://example.com/timeout', {headers: {delay_ms: '10'}})).resolves.toMatchObject({status: 200})
   })
 
   test('redirect', async () => {
@@ -275,3 +310,44 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry}: TestS
   // })
   // });
 }
+
+const createSequentialFetch = (responses: Array<() => Response>) => {
+  const calls: Array<Parameters<typeof fetch>> = []
+  return {
+    calls,
+    fetch: (async (...args: Parameters<typeof fetch>) => {
+      calls.push(args)
+      const next = responses[calls.length - 1]
+      if (!next) throw new Error(`Unexpected fetch call ${calls.length}`)
+      return next()
+    }) as typeof fetch,
+  }
+}
+
+const createAbortAwareFetch = () =>
+  (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const delayMs = Number((init?.headers as Record<string, string> | undefined)?.delay_ms || 0)
+    return new Promise<Response>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup()
+        resolve(new Response('ok', {status: 200}))
+      }, delayMs)
+
+      const onAbort = () => {
+        cleanup()
+        reject(new DOMException('Timed out', 'TimeoutError'))
+      }
+
+      const cleanup = () => {
+        clearTimeout(timeout)
+        init?.signal?.removeEventListener('abort', onAbort)
+      }
+
+      if (init?.signal?.aborted) {
+        onAbort()
+        return
+      }
+
+      init?.signal?.addEventListener('abort', onAbort)
+    })
+  }) as typeof fetch

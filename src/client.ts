@@ -44,7 +44,10 @@ export const client = <Parsers extends Record<string, ResponseParser<any>> = Rec
       const getClientFunction =
         (getData: (res: Response) => Promise<any>) =>
         async (url: string, {query, body, ...input}: FetchomaticClientRequestInit = {}) => {
-          const existingQuery = Object.fromEntries(new URLSearchParams(url.split('?')[1] || ''))
+          const existingQuery: Record<string, string> = {}
+          new URLSearchParams(url.split('?')[1] || '').forEach((value, key) => {
+            existingQuery[key] = value
+          })
           const parser = options?.parsers?.[url]
           fetch = parser ? withParser(fetch, {parser}) : fetch
           const res = await fetch(

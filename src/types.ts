@@ -1,4 +1,4 @@
-export type BaseFetch = typeof global.fetch
+export type BaseFetch = typeof globalThis.fetch
 
 export const Methods = ['GET', 'POST', 'PUT', 'HEAD', 'DELETE', 'OPTIONS', 'TRACE'] as const
 export type Method = (typeof Methods)[number]

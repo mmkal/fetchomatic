@@ -20,9 +20,8 @@ export const withTimeout = (fetch: BaseFetch, options: TimeoutOptions): BaseFetc
   // It would be nice to have granular options like lookup/connect/secureConnect/socket/send/response à la got:
   // https://github.com/sindresorhus/got/blob/main/documentation/6-timeout.md
   // but I don't know if that's possible with `fetch`
-  const abortSignal = AbortSignal.timeout(options.ms)
   const wrapped = withBeforeError(
-    async (init, input) => fetch(init, {...input, signal: abortSignal}),
+    async (init, input) => fetch(init, {...input, signal: AbortSignal.timeout(options.ms)}),
     params => wrapAbortDOMException(params.error),
   )
   return Object.assign(wrapped, options)
