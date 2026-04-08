@@ -262,8 +262,9 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
     let result!: FetchResult
 
     do {
-      if (typeof shouldRetry?.retryAfterMs === 'number') {
-        await new Promise(r => setTimeout(r, shouldRetry.retryAfterMs))
+      const retryAfterMs = shouldRetry?.retryAfterMs
+      if (typeof retryAfterMs === 'number') {
+        await new Promise(r => setTimeout(r, retryAfterMs))
       }
 
       const resolvedFetch = fetch
