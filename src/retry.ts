@@ -154,7 +154,7 @@ export const capRetryAttempts: ShouldRetryExtender<{attempts: number}> =
   ({attempts}) =>
   opts => {
     const previous = opts.basis(opts)
-    if (opts.attemptsMade > attempts) {
+    if (opts.attemptsMade >= attempts) {
       return {
         retryAfterMs: null,
         previous,

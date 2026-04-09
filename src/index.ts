@@ -37,6 +37,8 @@ type Chainable = {
 
 type Fetchomatic = Pick<FetchomaticMethods, Chainable | 'client'> & {
   fetch: BaseFetch
+  /** alias for `fetch` to avoid shadowing the global `fetch` */
+  fetcher: BaseFetch
 }
 
 export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
@@ -59,6 +61,7 @@ export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
     {
       client: (options?: any) => client(fetch, options as never),
       fetch,
+      fetcher: fetch,
     },
   ) as any as Fetchomatic
 

@@ -2,13 +2,13 @@
 import { test, expect } from 'bun:test';
 import {createTestSuite} from '../suite'
 import {fetchomatic, retry} from '../../src'
-import {testServerFetch} from '../server'
+import {createCreateServer} from '../server'
 
-const createServer = async () => {
+const createServer = createCreateServer(async fetch => {
     const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
-        fetch: testServerFetch,
+        fetch,
     })
 
     return {
@@ -17,7 +17,7 @@ const createServer = async () => {
             await server.stop()
         },
     }
-}
+})
 
 createTestSuite({
     test: (title, fn) => {

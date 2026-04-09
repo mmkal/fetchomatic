@@ -2,18 +2,18 @@
 /// <reference lib="dom" />
 import {expect} from 'npm:expect'
 import {createTestSuite} from '../suite.ts'
-import {testServerFetch} from '../server.ts'
+import {createCreateServer} from '../server.ts'
 import {fetchomatic, retry} from '../../dist/esm/index.js'
 
-const createServer = async () => {
-  const server = Deno.serve({hostname: '127.0.0.1', port: 0}, testServerFetch)
+const createServer = createCreateServer(async fetch => {
+  const server = Deno.serve({hostname: '127.0.0.1', port: 0}, fetch)
   return {
     baseUrl: `http://127.0.0.1:${server.addr.port}`,
     async [Symbol.asyncDispose]() {
       await server.shutdown()
     },
   }
-}
+})
 
 createTestSuite({
   test: Object.assign(

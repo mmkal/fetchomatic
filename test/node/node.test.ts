@@ -4,27 +4,12 @@ import * as http from 'node:http'
 import {createRequire} from 'module'
 import {fetchomatic, retry} from '../../src/index.js'
 import {createTestSuite} from '../suite.js'
-import {testServerFetch} from '../server.js'
+import {createCreateServer} from '../server.js'
 
 const require = createRequire(import.meta.url)
-const hostname = '127.0.0.1'
-
-const cases = [
-  ['global.fetch', global.fetch],
-  ['node-fetch', require('node-fetch')],
-  ['isomorphic-fetch', require('isomorphic-fetch')],
-  ['make-fetch-happen', require('make-fetch-happen')],
-  ['minipass-fetch', require('minipass-fetch')],
-]
-
-cases.forEach(([name, fetch]) => {
-  test.describe(`${name} impl`, () => {
-    createTestSuite({test, expect, fetch: fetch, fetchomatic, retry, createServer})
-  })
-})
-
-async function createServer() {
-  const adapter = createServerAdapter(testServerFetch, {disposeOnProcessTerminate: false})
+const createServer = createCreateServer(async fetch => {
+  const hostname = '127.0.0.1'
+  const adapter = createServerAdapter(fetch, {disposeOnProcessTerminate: false})
   const server = http.createServer(adapter.requestListener)
 
   await new Promise<void>(resolve => server.listen(0, hostname, resolve))
@@ -45,4 +30,18 @@ async function createServer() {
       })
     },
   }
-}
+})
+
+const cases = [
+  ['global.fetch', global.fetch],
+  ['node-fetch', require('node-fetch')],
+  ['isomorphic-fetch', require('isomorphic-fetch')],
+  ['make-fetch-happen', require('make-fetch-happen')],
+  ['minipass-fetch', require('minipass-fetch')],
+]
+
+cases.forEach(([name, fetch]) => {
+  test.describe(`${name} impl`, () => {
+    createTestSuite({test, expect, fetch: fetch, fetchomatic, retry, createServer})
+  })
+})
