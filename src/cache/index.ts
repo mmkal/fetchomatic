@@ -1,7 +1,7 @@
 import {parseFetchArgs, parseHeaders} from '../convert.js'
 import type {BaseFetch} from '../types.js'
 import {CachePolicy, type CacheInfoRequest, type CacheInfoResponse} from './http-cache-semantics.js'
-import type {KeyvLike} from './keyv.js'
+import type {KeyvLike, MapLike} from './keyv.js'
 
 export interface SerializeableResponseInit {
   status?: number
@@ -25,10 +25,17 @@ export const jsonToResponse = (serialized: SerializedResponseInfo): Response => 
   return new Response(...serialized)
 }
 
-const kvwrap = (keyv: KeyvLike<string>) => {
+export type WithCacheOptions = {keyv: KeyvLike<string>} | {store: MapLike<string, string>}
+
+interface NormalizedCacheStore {
+  get(key: string): Promise<string | undefined>
+  set(key: string, value: string, ttl: number): Promise<void>
+}
+
+const kvwrap = (store: NormalizedCacheStore) => {
   return {
     async set(url: URL, {policy, response}: {policy: CachePolicy; response: Response}, ttl: number) {
-      await keyv.set(
+      await store.set(
         url.toString(),
         JSON.stringify({
           policy: policy.toObject(),
@@ -39,7 +46,7 @@ const kvwrap = (keyv: KeyvLike<string>) => {
       )
     },
     async get(url: URL) {
-      const json = await keyv.get(url.toString())
+      const json = await store.get(url.toString())
       if (!json) return null
       const {policy, response, expiresAt} = JSON.parse(json) as {
         expiresAt: number
@@ -69,8 +76,26 @@ const toCacheInfoResponse = (response: Response): CacheInfoResponse => ({
   headers: parseHeaders(response.headers),
 })
 
-export const withCache = (fetch: BaseFetch, params: {keyv: KeyvLike<string>}): BaseFetch => {
-  const kv = kvwrap(params.keyv)
+const normalizeStore = (params: WithCacheOptions): NormalizedCacheStore => {
+  if ('keyv' in params) {
+    return {
+      get: key => Promise.resolve(params.keyv.get(key)),
+      set: async (key, value, ttl) => {
+        await params.keyv.set(key, value, ttl)
+      },
+    }
+  }
+
+  return {
+    get: key => Promise.resolve(params.store.get(key)),
+    set: async (key, value) => {
+      await params.store.set(key, value)
+    },
+  }
+}
+
+export const withCache = (fetch: BaseFetch, params: WithCacheOptions): BaseFetch => {
+  const kv = kvwrap(normalizeStore(params))
   return async (input, init) => {
     const {url, headers, method} = parseFetchArgs([input, init])
     const newRequest: CacheInfoRequest = {url: url.toString(), headers, method}

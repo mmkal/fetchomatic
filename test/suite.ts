@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/consistent-type-imports */
 import type {Expect} from '@playwright/test'
+import ExpiryMap from 'expiry-map'
 import Keyv from 'keyv'
 import {z} from 'zod'
 import type * as srcTypes from '../src/index.js'
@@ -226,6 +227,66 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
     expect(Object.fromEntries(map.entries())).toEqual({
       [`keyv:${server.baseUrl}/`]: expect.stringMatching(/{.*policy.*,.*response.*}/),
     })
+  })
+
+  test('cache accepts a plain map-like store', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('cached response', {
+          headers: {
+            'cache-control': 'immutable',
+            now: new Date().toISOString(),
+          },
+        })
+      },
+    })
+    const store = new Map<string, string>()
+    const client = fetchomatic(fetch)
+      .withCache({store})
+      .client({baseUrl: server.baseUrl})
+
+    const one = await client.get.text('/')
+    await sleep(1000)
+    const two = await client.get.text('/')
+
+    expect(one.data).toBe('cached response')
+    expect(two.data).toEqual(one.data)
+    expect(two.headers).not.toEqual(one.headers)
+    expect(two.status).toEqual(one.status)
+    expect(Object.fromEntries(store.entries())).toEqual({
+      [`${server.baseUrl}/`]: expect.stringMatching(/{.*policy.*,.*response.*}/),
+    })
+  })
+
+  test('cache accepts expiry-map', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('request to server count: ' + (server.helpers.previousRequests.length + 1), {
+          headers: {
+            'cache-control': 'immutable',
+            now: new Date().toISOString(),
+          },
+        })
+      },
+    })
+    const store = new ExpiryMap<string, string>(500)
+    const {fetcher} = fetchomatic(fetch)
+      .withCache({store})
+
+    const one = await fetcher(server.baseUrl)
+    await sleep(100)
+    const two = await fetcher(server.baseUrl)
+
+    expect(await one.text()).toBe('request to server count: 1')
+    expect(await two.text()).toBe('request to server count: 1')
+    expect(two.headers).not.toEqual(one.headers)
+    expect(two.status).toEqual(one.status)
+    expect(store.get(server.baseUrl + '/')).toEqual(expect.stringMatching(/{.*policy.*,.*response.*}/))
+
+    await sleep(500);
+
+    const three = await fetcher(server.baseUrl)
+    expect(await three.text()).toBe('request to server count: 2')
   })
 
   test('client with zod', async () => {
