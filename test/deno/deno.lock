@@ -2,6 +2,7 @@
   "version": "5",
   "specifiers": {
     "npm:expect@*": "30.3.0",
+    "npm:expiry-map@2": "2.0.0",
     "npm:keyv@^5.6.0": "5.6.0",
     "npm:zod@^4.3.6": "4.3.6"
   },
@@ -135,6 +136,12 @@
         "jest-util"
       ]
     },
+    "expiry-map@2.0.0": {
+      "integrity": "sha512-K1I5wJe2fiqjyUZf/xhxwTpaopw3F+19DsO7Oggl20+3SVTXDIevVRJav0aBMfposQdkl2E4+gnuOKd3j2X0sA==",
+      "dependencies": [
+        "map-age-cleaner"
+      ]
+    },
     "graceful-fs@4.2.11": {
       "integrity": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="
     },
@@ -204,6 +211,15 @@
         "@keyv/serialize"
       ]
     },
+    "map-age-cleaner@0.2.0": {
+      "integrity": "sha512-AvxTC6id0fzSf6OyNBTp1syyCuKO7nOJvHgYlhT0Qkkjvk40zZo+av3ayVgXlxnF/DxEzEfY9mMdd7FHsd+wKQ==",
+      "dependencies": [
+        "p-defer"
+      ]
+    },
+    "p-defer@1.0.0": {
+      "integrity": "sha512-wB3wfAxZpk2AzOfUMJNL+d36xothRSyj8EXOa4f6GMqYDN9BJaaSISbsk+wS9abmnebVw95C2Kb5t85UmpCxuw=="
+    },
     "picocolors@1.1.1": {
       "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
     },
@@ -245,6 +261,7 @@
   },
   "workspace": {
     "dependencies": [
+      "npm:expiry-map@2",
       "npm:keyv@^5.6.0",
       "npm:zod@^4.3.6"
     ]

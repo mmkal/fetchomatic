@@ -232,7 +232,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
   test('cache accepts a plain map-like store', async () => {
     await using server = await createServer({
       fetch() {
-        return new Response('cached response', {
+        return new Response('response ' + (server.helpers.previousRequests.length + 1), {
           headers: {
             'cache-control': 'immutable',
             now: new Date().toISOString(),
@@ -241,16 +241,15 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const store = new Map<string, string>()
-    const client = fetchomatic(fetch)
+    const {fetcher} = fetchomatic(fetch)
       .withCache({store})
-      .client({baseUrl: server.baseUrl})
 
-    const one = await client.get.text('/')
+    const one = await fetcher(server.baseUrl)
     await sleep(1000)
-    const two = await client.get.text('/')
+    const two = await fetcher(server.baseUrl)
 
-    expect(one.data).toBe('cached response')
-    expect(two.data).toEqual(one.data)
+    expect(await one.text()).toBe('response 1')
+    expect(await two.text()).toBe('response 1')
     expect(two.headers).not.toEqual(one.headers)
     expect(two.status).toEqual(one.status)
     expect(Object.fromEntries(store.entries())).toEqual({

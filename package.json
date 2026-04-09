@@ -55,7 +55,7 @@
     "test:node": "playwright test",
     "test:deno": "cd test/deno && deno test . --no-check --allow-net --allow-read --sloppy-imports --allow-env",
     "test:bun": "bun test test/bun",
-    "test:pkg": "(cd test/pkg && pnpm add-local-fetchomatic) && TEST_DIR=test/pkg pnpm test",
+    "test:pkg": "(pnpm build && cd test/pkg && pnpm add-local-fetchomatic) && TEST_DIR=test/pkg pnpm test",
     "test-server": "tsx test/server.ts",
     "playwright": "playwright",
     "playwright:browsers": "playwright install --with-deps",
