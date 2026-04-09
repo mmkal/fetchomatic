@@ -1,68 +1,51 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type {Client, ClientOptions} from './exports.js'
-import * as xports from './exports.js'
-import {client} from './exports.js'
-import type {ResponseParser} from './parse.js'
+import type {WithCacheOptions} from './cache/index.js'
+import {withCache} from './cache/index.js'
+import {mergeRequestInits} from './convert.js'
+export type {WithCacheOptions} from './cache/index.js'
+export {FetchomaticError, type FetchomaticErrorCode, type CustomErrorCode} from './errors.js'
+export {ParseError, type Parser, type ResponseParser, type JsonType} from './parse.js'
+export type {RetryOptions, ShouldRetry, ShouldRetryOptions, RetryInstruction} from './retry.js'
+export type {TimeoutOptions} from './timeout.js'
+export {FetchErrorCodes, Methods, type BaseFetch, type FetchErrorCode, type Method} from './types.js'
 import {withParser} from './parse.js'
 import {withRetry} from './retry.js'
+import {withTimeout} from './timeout.js'
 import type {BaseFetch} from './types.js'
 
-export * from './exports.js'
-
-export const fetchWrapper = (...options: Array<Parameters<typeof withRetry>[1] | Parameters<typeof withParser>[1]>) => {
-  return (fetch: BaseFetch) => {
-    return options.reduce((f, op) => {
-      return 'parser' in op ? withParser(f, op) : withRetry(f, op)
-    }, fetch)
-  }
+export interface FetchomaticOptions {
+  defaults?: RequestInit
+  headers?: Record<string, string>
+  userAgent?: string
+  authorization?: string
+  cache?: WithCacheOptions
+  retry?: Parameters<typeof withRetry>[1]
+  timeout?: Parameters<typeof withTimeout>[1]
+  parser?: Parameters<typeof withParser>[1]['parser']
 }
 
-type FetchomaticMethods = {
-  [K in keyof typeof xports]: K extends `with${string}`
-    ? NonNullable<(typeof xports)[K]> extends (fetch: BaseFetch, options?: infer Options) => any
-      ? (options?: Options) => Fetchomatic
-      : NonNullable<(typeof xports)[K]> extends (fetch: BaseFetch, options: infer Options) => any
-        ? (options: Options) => Fetchomatic
-        : never
-    : K extends 'client'
-      ? <Parsers extends Record<string, ResponseParser<any>> = Record<string, ResponseParser<unknown>>>(
-          options?: ClientOptions<Parsers>,
-        ) => Client<Parsers>
-      : never
+const withDefaults = (fetch: BaseFetch, defaults: RequestInit): BaseFetch => {
+  return async (input, init) => fetch(input, mergeRequestInits(defaults, init || {}))
 }
 
-type Chainable = {
-  [K in keyof typeof xports]: K extends `with${string}` ? K : never
-}[keyof FetchomaticMethods]
-
-type Fetchomatic = Pick<FetchomaticMethods, Chainable | 'client'> & {
-  fetch: BaseFetch
-  /** alias for `fetch` to avoid shadowing the global `fetch` */
-  fetcher: BaseFetch
+const withHeaders = (fetch: BaseFetch, headers: Record<string, string>): BaseFetch => {
+  return withDefaults(fetch, {headers})
 }
 
-export const fetchomatic = (fetch: BaseFetch): Fetchomatic =>
-  Object.assign(
-    Object.fromEntries(
-      Object.entries(xports).flatMap(([name]): Array<[string, Function]> => {
-        const isWithMethod = name.startsWith('with')
-        if (!isWithMethod) return []
-        return [
-          [
-            name,
-            (options?: any) => {
-              const newFetch = xports[name as Chainable](fetch, options as never)
-              return fetchomatic(newFetch)
-            },
-          ],
-        ]
-      }),
-    ),
-    {
-      client: (options?: any) => client(fetch, options as never),
-      fetch,
-      fetcher: fetch,
-    },
-  ) as any as Fetchomatic
+export const fetchWrapper = (options: FetchomaticOptions = {}) => {
+  return (fetch: BaseFetch) => fetchomatic(fetch, options)
+}
 
-export * as retry from './retry.js'
+export const fetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): BaseFetch => {
+  let wrapped = fetch
+
+  if (options.timeout) wrapped = withTimeout(wrapped, options.timeout)
+  if (options.retry) wrapped = withRetry(wrapped, options.retry)
+  if (options.cache) wrapped = withCache(wrapped, options.cache)
+  if (options.parser) wrapped = withParser(wrapped, {parser: options.parser})
+  if (options.defaults) wrapped = withDefaults(wrapped, options.defaults)
+  if (options.headers) wrapped = withHeaders(wrapped, options.headers)
+  if (options.userAgent) wrapped = withHeaders(wrapped, {'user-agent': options.userAgent})
+  if (options.authorization) wrapped = withHeaders(wrapped, {authorization: options.authorization})
+
+  return wrapped
+}

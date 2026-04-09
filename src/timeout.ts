@@ -1,5 +1,4 @@
 import {FetchomaticError} from './errors.js'
-import {withBeforeError} from './hooks.js'
 import type {BaseFetch} from './types.js'
 
 export interface TimeoutOptions {
@@ -20,9 +19,12 @@ export const withTimeout = (fetch: BaseFetch, options: TimeoutOptions): BaseFetc
   // It would be nice to have granular options like lookup/connect/secureConnect/socket/send/response à la got:
   // https://github.com/sindresorhus/got/blob/main/documentation/6-timeout.md
   // but I don't know if that's possible with `fetch`
-  const wrapped = withBeforeError(
-    async (init, input) => fetch(init, {...input, signal: AbortSignal.timeout(options.ms)}),
-    params => wrapAbortDOMException(params.error),
-  )
+  const wrapped: BaseFetch = async (input, init) => {
+    try {
+      return await fetch(input, {...init, signal: AbortSignal.timeout(options.ms)})
+    } catch (error) {
+      throw wrapAbortDOMException(error)
+    }
+  }
   return Object.assign(wrapped, options)
 }

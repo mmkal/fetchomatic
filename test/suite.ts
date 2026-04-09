@@ -3,6 +3,7 @@ import type {Expect} from '@playwright/test'
 import ExpiryMap from 'expiry-map'
 import Keyv from 'keyv'
 import {z} from 'zod'
+import {parseHeaders} from '../src/convert.js'
 import type * as srcTypes from '../src/index.js'
 import type {CreateServer} from './server.js'
 
@@ -25,10 +26,12 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
           : new Response('ok')
       },
     })
-    const {fetcher} = fetchomatic(fetch).withRetry({
-      maxRetries: 4,
-      delays: [10],
-      backoffMultiplier: 2,
+    const fetcher = fetchomatic(fetch, {
+      retry: {
+        maxRetries: 4,
+        delays: [10],
+        backoffMultiplier: 2,
+      },
     })
     const good = await fetcher(server.baseUrl)
 
@@ -52,10 +55,12 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const delayMs = 50
-    const {fetcher} = fetchomatic(fetch).withRetry({
-      maxRetries: 3,
-      delays: [delayMs],
-      backoffMultiplier: 2,
+    const fetcher = fetchomatic(fetch, {
+      retry: {
+        maxRetries: 3,
+        delays: [delayMs],
+        backoffMultiplier: 2,
+      },
     })
 
     const start = Date.now()
@@ -73,10 +78,12 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
         return new Response('uh-oh', {status: 500}) // always fails
       },
     })
-    const {fetcher} = fetchomatic(fetch).withRetry({
-      maxRetries: 4,
-      delays: [10],
-      backoffMultiplier: 2,
+    const fetcher = fetchomatic(fetch, {
+      retry: {
+        maxRetries: 4,
+        delays: [10],
+        backoffMultiplier: 2,
+      },
     })
     const bad = await fetcher(server.baseUrl)
     expect(bad.status).toBe(500)
@@ -99,7 +106,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
         return Response.json({query: Object.fromEntries(new URL(request.url).searchParams)})
       },
     })
-    const {fetcher} = fetchomatic(fetch).withParser({
+    const fetcher = fetchomatic(fetch, {
       parser: {
         json: z.object({query: z.object({foo: z.string()})}),
       },
@@ -123,7 +130,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
         return new Response('ok')
       },
     })
-    const {fetcher} = fetchomatic(fetch).withTimeout({ms: 1000})
+    const fetcher = fetchomatic(fetch, {timeout: {ms: 1000}})
 
     const good = await fetcher(`${server.baseUrl}?delay=500`)
     expect(good.status).toBe(200)
@@ -141,7 +148,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
         return new Response('ok')
       },
     })
-    const {fetcher} = fetchomatic(fetch).withTimeout({ms: 100})
+    const fetcher = fetchomatic(fetch, {timeout: {ms: 100}})
 
     const first = await fetcher(`${server.baseUrl}?delay=10`)
     expect(first).toMatchObject({status: 200})
@@ -176,17 +183,16 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
         return new Response('Not found', {status: 404})
       },
     })
-    const {fetcher} = fetchomatic(fetch)
-      .withDefaults({redirect: 'follow'})
+    const fetcher = fetchomatic(fetch, {defaults: {redirect: 'follow'}})
 
     const good = await fetcher(`${server.baseUrl}/redirect1`)
     await expect(good.text()).resolves.toBe('ok')
   })
 
-  test('fetchomatic, cache, log, client', async () => {
+  test('cache avoids a second request', async () => {
     await using server = await createServer({
       fetch() {
-        return new Response('cached response', {
+        return new Response('response #' + (server.helpers.previousRequests.length + 1), {
           headers: {
             'cache-control': 'immutable',
             now: new Date().toISOString(),
@@ -195,31 +201,23 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const map = new Map<string, string>()
-    const logs: unknown[] = []
-
-    const client = fetchomatic(fetch)
-      .withBeforeRequest(({parsed}) => void logs.push('before raw fetch: ' + parsed.headers.label))
-      .withCache({
+    const fetcher = fetchomatic(fetch, {
+      cache: {
         keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
-      })
-      .withBeforeRequest(({parsed}) => void logs.push('before cached fetch: ' + parsed.headers.label))
-      .client({baseUrl: server.baseUrl})
+      },
+    })
 
-    const one = await client.get.text('/', {headers: {label: 'first'}})
+    const one = await fetcher(server.baseUrl)
     await sleep(1000)
-    const two = await client.get.text('/', {headers: {label: 'second'}})
+    const two = await fetcher(server.baseUrl)
 
-    expect(logs).toMatchObject([
-      'before cached fetch: first',
-      'before raw fetch: first',
-      'before cached fetch: second',
-    ])
-    expect(one.data).toBe('cached response')
-    expect(two.data).toEqual(one.data)
-    expect(two.headers).not.toEqual(one.headers)
+    expect(await one.text()).toBe('response #1')
+    expect(await two.text()).toBe('response #1')
+    expect(server.helpers.previousRequests).toHaveLength(1)
+    expect(parseHeaders(two.headers)).not.toEqual(parseHeaders(one.headers))
     expect(two.status).toEqual(one.status)
-    expect(two.headers).toMatchObject({
-      ...withoutTransportHeaders(one.headers),
+    expect(parseHeaders(two.headers)).toMatchObject({
+      ...withoutTransportHeaders(parseHeaders(one.headers)),
       date: expect.any(String),
       age: expect.any(String),
     })
@@ -241,8 +239,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const store = new Map<string, string>()
-    const {fetcher} = fetchomatic(fetch)
-      .withCache({store})
+    const fetcher = fetchomatic(fetch, {cache: {store}})
 
     const one = await fetcher(server.baseUrl)
     await sleep(1000)
@@ -269,8 +266,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const store = new ExpiryMap<string, string>(500)
-    const {fetcher} = fetchomatic(fetch)
-      .withCache({store})
+    const fetcher = fetchomatic(fetch, {cache: {store}})
 
     const one = await fetcher(server.baseUrl)
     await sleep(100)
@@ -286,30 +282,6 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
 
     const three = await fetcher(server.baseUrl)
     expect(await three.text()).toBe('request to server count: 2')
-  })
-
-  test('client with zod', async () => {
-    await using server = await createServer({
-      fetch(request) {
-        return Response.json({query: Object.fromEntries(new URL(request.url).searchParams)})
-      },
-    })
-    const client = fetchomatic(fetch).client({
-      baseUrl: server.baseUrl,
-      parsers: {
-        '/': {
-          json: z.object({
-            query: z.object({x: z.string()}),
-          }),
-        },
-      },
-    })
-
-    const res = await client.get.json('/', {query: {x: 'yy'}})
-    expect(res.data).toEqual({query: {x: 'yy'}})
-
-    const bad = async () => client.get.json('/', {query: {a: 'bb'}}).catch(e => e.message)
-    expect(await bad()).toMatch(/Invalid input: expected string, received undefined → at query.x/s)
   })
 
   test('stale while revalidate', async () => {
@@ -331,48 +303,39 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       },
     })
     const map = new Map<string, string>()
-    const logs: unknown[] = []
-
-    const client = fetchomatic(fetch)
-      .withBeforeRequest(({parsed}) =>
-        void logs.push(`[${parsed.headers.label}] before raw fetch (swr: ${parsed.headers.swr || 'false'})`),
-      )
-      .withBeforeRequest(({args, parsed}) => {
-        args[1]!.headers = {
-          ...parsed.headers,
-          swr: Boolean(parsed.headers['if-none-match']).toString(),
-        }
-
-        return args
-      })
-      .withCache({
+    const fetcher = fetchomatic(fetch, {
+      cache: {
         keyv: new Keyv({store: map}),
-      })
-      .withBeforeRequest(({parsed}) => void logs.push(`[${parsed.headers.label}] before cooked fetch`))
-      .client({baseUrl: server.baseUrl})
+      },
+    })
 
-    const one = await client.get.text('/', {headers: {label: 'first'}})
+    const one = await fetcher(server.baseUrl, {headers: {label: 'first'}})
     await sleep(1200)
-    const two = await client.get.text('/', {headers: {label: 'second'}})
+    const two = await fetcher(server.baseUrl, {headers: {label: 'second'}})
     await sleep(1200)
-    const three = await client.get.text('/', {headers: {label: 'third'}})
+    const three = await fetcher(server.baseUrl, {headers: {label: 'third'}})
 
-    expect(logs).toMatchObject([
-      '[first] before cooked fetch',
-      '[first] before raw fetch (swr: false)',
-      '[second] before cooked fetch',
-      '[second] before raw fetch (swr: true)',
-      '[third] before cooked fetch',
-      '[third] before raw fetch (swr: false)',
+    expect(await one.text()).toBe('first')
+    expect(await two.text()).toBe('first')
+    expect(await three.text()).toBe('third')
+    await sleep(500)
+    expect(server.helpers.previousRequests).toHaveLength(3)
+    expect(
+      server.helpers.previousRequests
+        .map(request => ({
+          label: request.headers.get('label'),
+          revalidating: request.headers.has('if-none-match'),
+        }))
+        .sort((left, right) => left.label!.localeCompare(right.label!)),
+    ).toEqual([
+      {label: 'first', revalidating: false},
+      {label: 'second', revalidating: true},
+      {label: 'third', revalidating: false},
     ])
-
-    expect(one.data).toBe('first')
-    expect(two.data).toBe('first')
-    expect(three.data).toBe('third')
-    expect(two.headers).not.toEqual(one.headers)
+    expect(parseHeaders(two.headers)).not.toEqual(parseHeaders(one.headers))
     expect(two.status).toEqual(one.status)
-    expect(two.headers).toMatchObject({
-      ...withoutTransportHeaders(one.headers),
+    expect(parseHeaders(two.headers)).toMatchObject({
+      ...withoutTransportHeaders(parseHeaders(one.headers)),
       date: expect.any(String),
       age: expect.any(String),
     })

@@ -1,7 +1,10 @@
 import type {SimplifiedRequest} from './convert.js'
 import {parseFetchArgs, simplifyResponse} from './convert.js'
-import type {LogMethod, Logger} from './logging.js'
 import type {Method, FetchErrorCode, BaseFetch} from './types.js'
+
+export type Log<Args extends unknown[] = unknown[]> = (...args: Args) => void
+export type LogMethod = 'info' | 'warn' | 'error'
+export type Logger<Args extends unknown[] = unknown[]> = Record<LogMethod, Log<Args>>
 
 export interface ShouldRetryOptions {
   attemptsMade: number

@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test'
 import {createServerAdapter} from '@whatwg-node/server'
 import * as http from 'node:http'
 import {createRequire} from 'module'
-import {fetchomatic, retry} from '../../src/index.js'
+import {fetchomatic} from '../../src/index.js'
 import {createTestSuite} from '../suite.js'
 import {createCreateServer} from '../server.js'
 
