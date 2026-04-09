@@ -12,7 +12,7 @@ export * from './exports.js'
 export const fetchWrapper = (...options: Array<Parameters<typeof withRetry>[1] | Parameters<typeof withParser>[1]>) => {
   return (fetch: BaseFetch) => {
     return options.reduce((f, op) => {
-      return 'shouldRetry' in op ? withRetry(f, op) : withParser(f, op)
+      return 'parser' in op ? withParser(f, op) : withRetry(f, op)
     }, fetch)
   }
 }

@@ -53,7 +53,7 @@
     "test": "playwright test",
     "test-all": "pnpm build && concurrently 'npm:test:*'",
     "test:node": "playwright test",
-    "test:deno": "DENO_NO_PACKAGE_JSON=true deno test test/deno --no-check --allow-net --allow-read",
+    "test:deno": "cd test/deno && deno test . --no-check --allow-net --allow-read --sloppy-imports --allow-env",
     "test:bun": "bun test test/bun",
     "test:pkg": "(cd test/pkg && pnpm add-local-fetchomatic) && TEST_DIR=test/pkg pnpm test",
     "test-server": "tsx test/server.ts",

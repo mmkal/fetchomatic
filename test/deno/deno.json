@@ -1,0 +1,7 @@
+{
+    "nodeModulesDir": "auto",
+    "imports": {
+        "keyv": "npm:keyv@^5.6.0",
+        "zod": "npm:zod@^4.3.6"
+    }
+}

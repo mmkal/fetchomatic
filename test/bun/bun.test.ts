@@ -1,7 +1,7 @@
 // @ts-ignore
 import { test, expect } from 'bun:test';
 import {createTestSuite} from '../suite'
-import {fetchomatic, retry} from '../../src'
+import {fetchomatic} from '../../src'
 import {createCreateServer} from '../server'
 
 const createServer = createCreateServer(async fetch => {
@@ -21,12 +21,11 @@ const createServer = createCreateServer(async fetch => {
 
 createTestSuite({
     test: (title, fn) => {
-        if (title === 'timeout') return // AbortSignal doesn't work: https://github.com/oven-sh/bun/issues/2489
+        // if (title === 'timeout') return // AbortSignal doesn't work: https://github.com/oven-sh/bun/issues/2489
         test(title, fn)
     },
     expect,
     fetch,
     fetchomatic,
-    retry,
     createServer,
 })

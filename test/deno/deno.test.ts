@@ -3,7 +3,7 @@
 import {expect} from 'npm:expect'
 import {createTestSuite} from '../suite.ts'
 import {createCreateServer} from '../server.ts'
-import {fetchomatic, retry} from '../../dist/esm/index.js'
+import {fetchomatic} from '../../src/index.ts'
 
 const createServer = createCreateServer(async fetch => {
   const server = Deno.serve({hostname: '127.0.0.1', port: 0}, fetch)
@@ -30,6 +30,5 @@ createTestSuite({
   expect: expect as any,
   fetch: fetch,
   fetchomatic,
-  retry,
   createServer,
 })

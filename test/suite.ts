@@ -12,35 +12,22 @@ type TestSuiteInputs = {
   expect: Expect
   fetch: typeof fetch
   fetchomatic: typeof srcTypes.fetchomatic
-  retry: typeof srcTypes.retry
   createServer: CreateServer
 }
 
-export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, createServer}: TestSuiteInputs) => {
-  const mockFn = () => {
-    const calls: unknown[][] = []
-    const fn = (...args: unknown[]) => void calls.push(args)
-
-    return Object.assign(fn, {mock: {calls}, clear: () => calls.splice(0, calls.length)})
-  }
-
+export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}: TestSuiteInputs) => {
   test('retry succeed', async () => {
     await using server = await createServer({
       fetch() {
-        if (server.helpers.previousRequests.length < 3) {
-          return new Response('uh-oh', {status: 500})
-        }
-
-        return new Response('ok')
+        return server.helpers.previousRequests.length <= 2
+          ? new Response('uh-oh', {status: 500})
+          : new Response('ok')
       },
     })
     const {fetcher} = fetchomatic(fetch).withRetry({
-      shouldRetry: retry.createShouldRetry(
-        retry.retryOnFailure(),
-        retry.delayRetry({ms: 10}),
-        retry.expBackoff({power: 2}),
-        retry.capRetryAttempts({attempts: 4}),
-      ),
+      maxRetries: 4,
+      delays: [10],
+      backoffMultiplier: 2,
     })
     const good = await fetcher(server.baseUrl)
 
@@ -58,18 +45,16 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
   test('retry delay waits between attempts', async () => {
     await using server = await createServer({
       fetch() {
-        return server.helpers.previousRequests.length < 2
+        return server.helpers.previousRequests.length <= 2
           ? new Response('uh-oh', {status: 500})
           : new Response('ok')
       },
     })
-    const delayMs = 100
+    const delayMs = 50
     const {fetcher} = fetchomatic(fetch).withRetry({
-      shouldRetry: retry.createShouldRetry(
-        retry.retryOnFailure(),
-        retry.delayRetry({ms: delayMs}),
-        retry.capRetryAttempts({attempts: 2}),
-      ),
+      maxRetries: 3,
+      delays: [delayMs],
+      backoffMultiplier: 2,
     })
 
     const start = Date.now()
@@ -77,23 +62,20 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
     const elapsedMs = Date.now() - start
 
     expect(response.status).toBe(200)
-    expect(elapsedMs).toBeGreaterThanOrEqual(delayMs * 2 - 20)
-    expect(server.helpers.previousRequests).toHaveLength(3)
+    expect(elapsedMs).toBeGreaterThanOrEqual(delayMs + delayMs * 2 + delayMs * 4)
+    expect(server.helpers.previousRequests).toHaveLength(4)
   })
 
   test('retry give up', async () => {
     await using server = await createServer({
       fetch() {
-        return new Response('uh-oh', {status: 500}) // just always fails
+        return new Response('uh-oh', {status: 500}) // always fails
       },
     })
     const {fetcher} = fetchomatic(fetch).withRetry({
-      shouldRetry: retry.createShouldRetry(
-        retry.retryOnFailure(),
-        retry.delayRetry({ms: 10}),
-        retry.expBackoff({power: 2}),
-        retry.capRetryAttempts({attempts: 4}),
-      ),
+      maxRetries: 4,
+      delays: [10],
+      backoffMultiplier: 2,
     })
     const bad = await fetcher(server.baseUrl)
     expect(bad.status).toBe(500)
@@ -142,11 +124,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
     })
     const {fetcher} = fetchomatic(fetch).withTimeout({ms: 1000})
 
-    const good = await fetcher(`${server.baseUrl}?foo=x&delay=500`)
+    const good = await fetcher(`${server.baseUrl}?delay=500`)
     expect(good.status).toBe(200)
 
-    const bad = async () => fetcher(`${server.baseUrl}?foo=x&delay=1500`)
-    await expect(bad).rejects.toThrow(/aborted/i)
+    const bad = async () => fetcher(`${server.baseUrl}?delay=1500`)
+    await expect(bad()).rejects.toThrow(/aborted/i)
   })
 
   test('timeout is scoped per request', async () => {
@@ -212,21 +194,21 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
       },
     })
     const map = new Map<string, string>()
-    const log = mockFn()
+    const logs: unknown[] = []
 
     const client = fetchomatic(fetch)
-      .withBeforeRequest(({parsed}) => log('before raw fetch: ' + parsed.headers.label))
+      .withBeforeRequest(({parsed}) => void logs.push('before raw fetch: ' + parsed.headers.label))
       .withCache({
         keyv: new Keyv({store: map}) as import('../src/cache/keyv.js').KeyvLike<string>,
       })
-      .withBeforeRequest(({parsed}) => log('before cached fetch: ' + parsed.headers.label))
+      .withBeforeRequest(({parsed}) => void logs.push('before cached fetch: ' + parsed.headers.label))
       .client({baseUrl: server.baseUrl})
 
     const one = await client.get.text('/', {headers: {label: 'first'}})
     await sleep(1000)
     const two = await client.get.text('/', {headers: {label: 'second'}})
 
-    expect(log.mock.calls.map(c => c[0])).toMatchObject([
+    expect(logs).toMatchObject([
       'before cached fetch: first',
       'before raw fetch: first',
       'before cached fetch: second',
@@ -289,11 +271,11 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
       },
     })
     const map = new Map<string, string>()
-    const log = mockFn()
+    const logs: unknown[] = []
 
     const client = fetchomatic(fetch)
       .withBeforeRequest(({parsed}) =>
-        log(`[${parsed.headers.label}] before raw fetch (swr: ${parsed.headers.swr || 'false'})`),
+        void logs.push(`[${parsed.headers.label}] before raw fetch (swr: ${parsed.headers.swr || 'false'})`),
       )
       .withBeforeRequest(({args, parsed}) => {
         args[1]!.headers = {
@@ -306,7 +288,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
       .withCache({
         keyv: new Keyv({store: map}),
       })
-      .withBeforeRequest(({parsed}) => log(`[${parsed.headers.label}] before cooked fetch`))
+      .withBeforeRequest(({parsed}) => void logs.push(`[${parsed.headers.label}] before cooked fetch`))
       .client({baseUrl: server.baseUrl})
 
     const one = await client.get.text('/', {headers: {label: 'first'}})
@@ -315,7 +297,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, retry, create
     await sleep(1200)
     const three = await client.get.text('/', {headers: {label: 'third'}})
 
-    expect(log.mock.calls.map(c => c[0])).toMatchObject([
+    expect(logs).toMatchObject([
       '[first] before cooked fetch',
       '[first] before raw fetch (swr: false)',
       '[second] before cooked fetch',

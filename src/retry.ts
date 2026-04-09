@@ -22,6 +22,19 @@ export interface RetryInstruction {
   request?: (parsed: Pick<SimplifiedRequest, 'headers'>) => Pick<SimplifiedRequest, 'headers'>
 }
 
+export interface RetryOptions {
+  methods?: Method[]
+  statuses?: number[]
+  errorCodes?: FetchErrorCode[]
+  maxRetries?: number
+  delays?: number[]
+  backoffMultiplier?: number
+  jitter?: 'none' | 'full'
+  maxDelayMs?: number | null
+  respectRetryAfter?: boolean
+  respectRateLimitReset?: boolean
+}
+
 export interface RetryInfo {
   options: ShouldRetryOptions
   instruction: RetryInstruction
@@ -226,6 +239,104 @@ export const createShouldRetry = (...list: ShouldRetry[]) => {
   }, list[0] || noRetry)
 }
 
+type ResolvedRetryOptions = {
+  methods: Method[]
+  statuses: number[]
+  errorCodes: FetchErrorCode[]
+  maxRetries: number
+  delays: number[]
+  backoffMultiplier: number
+  jitter: Jitter
+  maxDelayMs: number | null
+  respectRetryAfter: boolean
+  respectRateLimitReset: boolean
+}
+
+const resolveRetryAfterMs = (header: string) => {
+  const rawMs = /\D/.test(header) ? new Date(header).getTime() - Date.now() : Number(header) * 1000
+  return Math.max(0, rawMs)
+}
+
+const resolveRateLimitResetMs = (header: string) => {
+  const rawMs = Number(header) * 1000 - Date.now()
+  return Math.max(0, rawMs)
+}
+
+const normalizeRetryOptions = (options: RetryOptions): ResolvedRetryOptions => ({
+  methods: options.methods || defaultRetryConditions.methods,
+  statuses: options.statuses || defaultRetryConditions.statuses,
+  errorCodes: options.errorCodes || defaultRetryConditions.errorCodes,
+  maxRetries: options.maxRetries ?? 10,
+  delays: options.delays?.length ? options.delays : [0],
+  backoffMultiplier: options.backoffMultiplier ?? 1,
+  jitter: options.jitter === 'full' ? fullJitter : noJitter,
+  maxDelayMs: options.maxDelayMs ?? null,
+  respectRetryAfter: options.respectRetryAfter ?? false,
+  respectRateLimitReset: options.respectRateLimitReset ?? false,
+})
+
+const calculateRetryDelayMs = (options: ResolvedRetryOptions, attemptsMade: number) => {
+  const {delays, backoffMultiplier} = options
+  const explicitDelay = delays[attemptsMade]
+  const baseDelay =
+    typeof explicitDelay === 'number'
+      ? explicitDelay
+      : delays[delays.length - 1] * backoffMultiplier ** (attemptsMade - delays.length + 1)
+
+  const cappedDelay =
+    typeof options.maxDelayMs === 'number' ? Math.min(baseDelay, options.maxDelayMs) : baseDelay
+
+  return options.jitter(cappedDelay)
+}
+
+export const createRetryPolicy = (options: RetryOptions): ShouldRetry => {
+  const resolved = normalizeRetryOptions(options)
+  const matchesFailure = retryOnFailure({
+    conditions: {
+      methods: resolved.methods,
+      statuses: resolved.statuses,
+      errorCodes: resolved.errorCodes,
+    },
+  })
+
+  return retryOptions => {
+    const previous = matchesFailure({...retryOptions, basis: noRetry})
+    if (typeof previous.retryAfterMs !== 'number') {
+      return previous
+    }
+
+    if (retryOptions.attemptsMade >= resolved.maxRetries) {
+      return {
+        retryAfterMs: null,
+        previous,
+        reason: `Retry disabled, ${resolved.maxRetries} retries reached`,
+      }
+    }
+
+    const retryAfterHeader =
+      resolved.respectRetryAfter && retryOptions.response?.headers.get('retry-after')
+    const rateLimitResetHeader =
+      resolved.respectRateLimitReset && retryOptions.response?.headers.get('x-ratelimit-reset')
+    const scheduleDelayMs = calculateRetryDelayMs(resolved, retryOptions.attemptsMade)
+    const headerDelayMs = retryAfterHeader
+      ? resolveRetryAfterMs(retryAfterHeader)
+      : rateLimitResetHeader
+        ? resolveRateLimitResetMs(rateLimitResetHeader)
+        : null
+    const retryAfterMs = headerDelayMs ?? scheduleDelayMs
+
+    return {
+      retryAfterMs,
+      previous,
+      reason: retryAfterHeader
+        ? `retry-after response header instructed waiting for ${retryAfterHeader}`
+        : rateLimitResetHeader
+          ? `x-ratelimit-reset header instructed waiting until epoch ${rateLimitResetHeader}`
+          : `Retry ${retryOptions.attemptsMade + 1}/${resolved.maxRetries} scheduled after ${retryAfterMs}ms`,
+    }
+  }
+}
+
 export interface MegaRetryOptions {
   failureConditions?: RetryConditions
   firstRetryTimeoutMs?: number
@@ -255,21 +366,25 @@ export const megaRetry = ({
   )
 
 /** Get a new `fetch` instance which retries based on the `shouldRetry` function */
-export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry}): BaseFetch & typeof options => {
+export const withRetry = (
+  fetch: BaseFetch,
+  options: RetryOptions | {shouldRetry: ShouldRetry},
+): BaseFetch & typeof options => {
+  const shouldRetry = 'shouldRetry' in options ? options.shouldRetry : createRetryPolicy(options)
   const wrapped: BaseFetch = async (input, init) => {
     let attemptsMade = 0
-    let shouldRetry!: ReturnType<ShouldRetry>
+    let retryInstruction!: ReturnType<ShouldRetry>
     let result!: FetchResult
 
     do {
-      const retryAfterMs = shouldRetry?.retryAfterMs
+      const retryAfterMs = retryInstruction?.retryAfterMs
       if (typeof retryAfterMs === 'number') {
         await new Promise(r => setTimeout(r, retryAfterMs))
       }
 
       const resolvedFetch = fetch
       const parsedArgs = parseFetchArgs([input, init])
-      const {headers} = shouldRetry?.request?.(parsedArgs) || parsedArgs
+      const {headers} = retryInstruction?.request?.(parsedArgs) || parsedArgs
       init = {...init, headers}
       result = await resolvedFetch(input, init)
         .then((response): typeof result => ({ok: true, response}))
@@ -277,7 +392,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
 
       const method = (init?.method as Method) || 'GET'
 
-      shouldRetry = options.shouldRetry({
+      retryInstruction = shouldRetry({
         attemptsMade,
         method,
         basis: noRetry,
@@ -289,7 +404,7 @@ export const withRetry = (fetch: BaseFetch, options: {shouldRetry: ShouldRetry})
       })
 
       attemptsMade++
-    } while (typeof shouldRetry.retryAfterMs === 'number')
+    } while (typeof retryInstruction.retryAfterMs === 'number')
 
     if (!result.ok) {
       // eslint-disable-next-line @typescript-eslint/no-throw-literal

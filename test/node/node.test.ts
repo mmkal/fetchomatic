@@ -14,20 +14,12 @@ const createServer = createCreateServer(async fetch => {
 
   await new Promise<void>(resolve => server.listen(0, hostname, resolve))
   const address = server.address()
-  if (!address || typeof address === 'string') {
-    throw new Error(`Expected server to listen on a TCP port`)
-  }
 
   return {
-    baseUrl: `http://${hostname}:${address.port}`,
+    baseUrl: `http://${hostname}:${(address as {port: number}).port.toString()}`,
     async [Symbol.asyncDispose]() {
       await adapter.dispose()
-      await new Promise<void>((resolve, reject) => {
-        server.close(error => {
-          if (error) reject(error)
-          else resolve()
-        })
-      })
+      await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve()))
     },
   }
 })
@@ -42,6 +34,6 @@ const cases = [
 
 cases.forEach(([name, fetch]) => {
   test.describe(`${name} impl`, () => {
-    createTestSuite({test, expect, fetch: fetch, fetchomatic, retry, createServer})
+    createTestSuite({test, expect, fetch: fetch, fetchomatic, createServer})
   })
 })

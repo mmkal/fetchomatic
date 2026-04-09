@@ -25,27 +25,11 @@ Aims:
 
 ```ts
 const {fetch: myfetch} = fetchomatic(fetch).withRetry({
-    shouldRetry: retry.createShouldRetry(
-    retry.retryOnFailure(),
-    retry.delayRetry({ms: 10}),
-    retry.expBackoff({power: 2}),
-    retry.capRetryAttempts({attempts: 4}),
-    retry.logRetry({logger: {...console, warn, error}}),
-    opts => {
-        const previous = opts.basis(opts)
-        if (typeof previous.retryAfterMs !== 'number') {
-            return previous
-        }
-
-        return {
-            ...previous,
-            request: parsed => {
-                const headers = {...parsed.headers, retry_number: `${Number(parsed.headers.retry_number || 0) + 1}`}
-                return {headers}
-            },
-        }
-    },
-  ),
+  maxRetries: 4,
+  delays: [10],
+  backoffMultiplier: 2,
+  jitter: 'full',
+  respectRetryAfter: true,
 })
 
 await myfetch('https://example.com', {headers: {'user-agent': 'abc'}}) // myfetch can be used exactly like the built-in `fetch`
