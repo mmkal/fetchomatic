@@ -23,16 +23,12 @@ export interface FetchomaticOptions {
   parser?: Parameters<typeof withParser>[1]['parser']
 }
 
-const withDefaults = (fetch: BaseFetch, defaults: RequestInit): BaseFetch => {
+const applyDefaults = (fetch: BaseFetch, defaults: RequestInit): BaseFetch => {
   return async (input, init) => fetch(input, mergeRequestInits(defaults, init || {}))
 }
 
-const withHeaders = (fetch: BaseFetch, headers: Record<string, string>): BaseFetch => {
-  return withDefaults(fetch, {headers})
-}
-
-export const fetchWrapper = (options: FetchomaticOptions = {}) => {
-  return (fetch: BaseFetch) => fetchomatic(fetch, options)
+const applyHeaders = (fetch: BaseFetch, headers: Record<string, string>): BaseFetch => {
+  return applyDefaults(fetch, {headers})
 }
 
 export const fetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): BaseFetch => {
@@ -42,10 +38,10 @@ export const fetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}):
   if (options.retry) wrapped = withRetry(wrapped, options.retry)
   if (options.cache) wrapped = withCache(wrapped, options.cache)
   if (options.parser) wrapped = withParser(wrapped, {parser: options.parser})
-  if (options.defaults) wrapped = withDefaults(wrapped, options.defaults)
-  if (options.headers) wrapped = withHeaders(wrapped, options.headers)
-  if (options.userAgent) wrapped = withHeaders(wrapped, {'user-agent': options.userAgent})
-  if (options.authorization) wrapped = withHeaders(wrapped, {authorization: options.authorization})
+  if (options.defaults) wrapped = applyDefaults(wrapped, options.defaults)
+  if (options.headers) wrapped = applyHeaders(wrapped, options.headers)
+  if (options.userAgent) wrapped = applyHeaders(wrapped, {'user-agent': options.userAgent})
+  if (options.authorization) wrapped = applyHeaders(wrapped, {authorization: options.authorization})
 
   return wrapped
 }

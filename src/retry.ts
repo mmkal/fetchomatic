@@ -1,10 +1,6 @@
 import type {SimplifiedRequest} from './convert.js'
-import {parseFetchArgs, simplifyResponse} from './convert.js'
+import {parseFetchArgs} from './convert.js'
 import type {Method, FetchErrorCode, BaseFetch} from './types.js'
-
-export type Log<Args extends unknown[] = unknown[]> = (...args: Args) => void
-export type LogMethod = 'info' | 'warn' | 'error'
-export type Logger<Args extends unknown[] = unknown[]> = Record<LogMethod, Log<Args>>
 
 export interface ShouldRetryOptions {
   attemptsMade: number
@@ -208,34 +204,6 @@ export const respectRateLimitHeaders = (): ShouldRetry => opts => {
   return previous
 }
 
-type GetLogMethod = (params: {options: ShouldRetryOptions; result: RetryInstruction}) => LogMethod | null
-
-export const failureOrRetrySuccessLogMethod: GetLogMethod = ({options, result}) => {
-  if (typeof result.retryAfterMs === 'number') return 'error'
-  if (options.attemptsMade > 0) return 'warn'
-  return null
-}
-
-export const logRetry: ShouldRetryExtender<{
-  message?: string
-  logger?: Logger
-  getLogMethod?: GetLogMethod
-}> =
-  ({message = 'retry', logger = console, getLogMethod = failureOrRetrySuccessLogMethod}) =>
-  options => {
-    const result = options.basis(options)
-    const logMethod = getLogMethod({options, result})
-    if (logMethod) {
-      logger[logMethod]({
-        message,
-        options: {...options, response: options.response && simplifyResponse(options.response)},
-        result,
-      })
-    }
-
-    return result
-  }
-
 export const createShouldRetry = (...list: ShouldRetry[]) => {
   return list.slice(1).reduce((basis, next) => {
     return opts => next({...opts, basis})
@@ -425,7 +393,6 @@ export const awsRetryConfig = createShouldRetry(
   delayRetry({ms: 100}),
   expBackoff({power: 2}),
   capRetryAttempts({attempts: 4}),
-  logRetry({logger: console}),
 )
 
 export const aws2 = megaRetry({
@@ -441,7 +408,6 @@ export const githubRetryConfig = createShouldRetry(
   delayRetry({ms: 100}),
   expBackoff({power: 2}),
   capRetryAttempts({attempts: 4}),
-  logRetry({logger: console}),
   respectRateLimitHeaders(),
   capRetryTimeout({ms: 120_000, behavior: 'disable-retry'}),
 )

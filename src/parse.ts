@@ -46,7 +46,10 @@ const noPromise = <T>(result: T | Promise<T>, reason: string) => {
 
 export type JsonType<P extends ResponseParser<unknown>> = P extends {json: Parser<infer X>} ? X : never
 
-export const withParser = <T>(fetch: BaseFetch, options: {parser: ResponseParser<T>}): BaseFetch & typeof options => {
+export const withParser = <T>(
+  fetch: BaseFetch,
+  options: {parser: ResponseParser<T>},
+): BaseFetch & typeof options => {
   const wrapped: BaseFetch = async (...args) => {
     const original = await fetch(...args)
     const clone = original.clone()
