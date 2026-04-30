@@ -37,6 +37,38 @@ const myfetch = fetchomatic(fetch, {
 await myfetch('https://example.com', {headers: {'user-agent': 'abc'}}) // myfetch can be used exactly like the built-in `fetch`
 ```
 
+The `retry` option can also be a policy function. Fetchomatic calls it after every response or thrown error, including successful responses, and retries only when it returns `{retry: true}`.
+
+```ts
+const myfetch = fetchomatic(fetch, {
+  retry: params =>
+    fetchomatic.retry(params, {
+      maxRetries: 4,
+      delays: [10],
+      backoffMultiplier: 2,
+    }),
+})
+```
+
+Custom policies can retry on anything they can observe:
+
+```ts
+const myfetch = fetchomatic(fetch, {
+  async retry(params) {
+    if (!params.response) return fetchomatic.retry(params, {maxRetries: 4})
+
+    const body = await params.response.clone().json()
+    if (body.foo === 'bar') {
+      return {retry: true, delayMs: 250, reason: 'transient body marker'}
+    }
+
+    return {retry: false}
+  },
+})
+```
+
+Fetchomatic does not automatically clone responses for retry policies. If a policy needs to read a response body and still return that response to the caller, it should read from `params.response.clone()`.
+
 Notes on how this implemented.
 
 ### TypeScript

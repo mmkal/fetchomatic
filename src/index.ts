@@ -1,14 +1,15 @@
 import type {WithCacheOptions} from './cache/index.js'
 import {withCache} from './cache/index.js'
 import {mergeRequestInits} from './convert.js'
+
 export type {WithCacheOptions} from './cache/index.js'
 export {FetchomaticError, type FetchomaticErrorCode, type CustomErrorCode} from './errors.js'
 export {ParseError, type Parser, type ResponseParser, type JsonType} from './parse.js'
-export type {RetryOptions, ShouldRetry, ShouldRetryOptions, RetryInstruction} from './retry.js'
+export type {RetryDecision, RetryOptions, RetryParams, RetryPolicy} from './retry.js'
 export type {TimeoutOptions} from './timeout.js'
 export {FetchErrorCodes, Methods, type BaseFetch, type FetchErrorCode, type Method} from './types.js'
 import {withParser} from './parse.js'
-import {withRetry} from './retry.js'
+import {retry, withRetry, type RetryOptions, type RetryPolicy} from './retry.js'
 import {withTimeout} from './timeout.js'
 import type {BaseFetch} from './types.js'
 
@@ -18,7 +19,7 @@ export interface FetchomaticOptions {
   userAgent?: string
   authorization?: string
   cache?: WithCacheOptions
-  retry?: Parameters<typeof withRetry>[1]
+  retry?: RetryOptions | RetryPolicy
   timeout?: Parameters<typeof withTimeout>[1]
   parser?: Parameters<typeof withParser>[1]['parser']
 }
@@ -31,7 +32,11 @@ const applyHeaders = (fetch: BaseFetch, headers: Record<string, string>): BaseFe
   return applyDefaults(fetch, {headers})
 }
 
-export const fetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): BaseFetch => {
+type Fetchomatic = ((fetch: BaseFetch, options?: FetchomaticOptions) => BaseFetch) & {
+  retry: typeof retry
+}
+
+const createFetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): BaseFetch => {
   let wrapped = fetch
 
   if (options.timeout) wrapped = withTimeout(wrapped, options.timeout)
@@ -45,3 +50,5 @@ export const fetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}):
 
   return wrapped
 }
+
+export const fetchomatic: Fetchomatic = Object.assign(createFetchomatic, {retry})

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-imports */
 import type {Expect} from '@playwright/test'
 import ExpiryMap from 'expiry-map'
 import Keyv from 'keyv'
@@ -21,9 +20,10 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
   test('retry succeed', async () => {
     await using server = await createServer({
       fetch() {
-        return server.helpers.previousRequests.length <= 2
-          ? new Response('uh-oh', {status: 500})
-          : new Response('ok')
+        if (server.helpers.previousRequests.length <= 2) {
+          return new Response('uh-oh', {status: 500})
+        }
+        return new Response('ok')
       },
     })
     const fetcher = fetchomatic(fetch, {
@@ -49,9 +49,10 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
   test('retry delay waits between attempts', async () => {
     await using server = await createServer({
       fetch() {
-        return server.helpers.previousRequests.length <= 2
-          ? new Response('uh-oh', {status: 500})
-          : new Response('ok')
+        if (server.helpers.previousRequests.length <= 2) {
+          return new Response('uh-oh', {status: 500})
+        }
+        return new Response('ok')
       },
     })
     const delayMs = 50
@@ -98,6 +99,85 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
       'uh-oh',
       'uh-oh',
     ])
+  })
+
+  test('retry function can delegate to built-in retry policy', async () => {
+    await using server = await createServer({
+      fetch() {
+        if (server.helpers.previousRequests.length <= 2) {
+          return new Response('uh-oh', {status: 500})
+        }
+        return new Response('ok')
+      },
+    })
+    const attemptsMade: number[] = []
+    const fetcher = fetchomatic(fetch, {
+      retry: params => {
+        attemptsMade.push(params.attemptsMade)
+        return fetchomatic.retry(params, {
+          maxRetries: 4,
+          delays: [10],
+          backoffMultiplier: 2,
+        })
+      },
+    })
+
+    const good = await fetcher(server.baseUrl)
+
+    await expect(good.text()).resolves.toBe('ok')
+    expect(server.helpers.previousRequests).toHaveLength(4)
+    expect(attemptsMade).toEqual([1, 2, 3, 4])
+  })
+
+  test('retry function can retry a successful response', async () => {
+    await using server = await createServer({
+      fetch() {
+        if (server.helpers.previousRequests.length <= 1) {
+          return new Response(null, {status: 204})
+        }
+        return new Response('ok')
+      },
+    })
+    const fetcher = fetchomatic(fetch, {
+      retry(params) {
+        if (params.response?.status === 204 && params.attemptsMade <= 3) {
+          return {retry: true, delayMs: 0, reason: 'empty response'}
+        }
+
+        return {retry: false, reason: 'usable response'}
+      },
+    })
+
+    const response = await fetcher(server.baseUrl)
+
+    expect(response.status).toBe(200)
+    await expect(response.text()).resolves.toBe('ok')
+    expect(server.helpers.previousRequests).toHaveLength(3)
+  })
+
+  test('retry function can inspect a cloned response body', async () => {
+    await using server = await createServer({
+      fetch() {
+        return Response.json({foo: server.helpers.previousRequests.length === 0 ? 'bar' : 'ok'})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {
+      async retry(params) {
+        if (!params.response) return fetchomatic.retry(params, {maxRetries: 1})
+
+        const body = await params.response.clone().json()
+        if (body.foo === 'bar') {
+          return {retry: true, delayMs: 0, reason: 'transient body marker'}
+        }
+
+        return {retry: false, reason: 'body is usable'}
+      },
+    })
+
+    const response = await fetcher(server.baseUrl)
+
+    await expect(response.json()).resolves.toEqual({foo: 'ok'})
+    expect(server.helpers.previousRequests).toHaveLength(2)
   })
 
   test('parse', async () => {
@@ -278,7 +358,7 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
     expect(two.status).toEqual(one.status)
     expect(store.get(server.baseUrl + '/')).toEqual(expect.stringMatching(/{.*policy.*,.*response.*}/))
 
-    await sleep(500);
+    await sleep(500)
 
     const three = await fetcher(server.baseUrl)
     expect(await three.text()).toBe('request to server count: 2')

@@ -1,14 +1,6 @@
-/* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable guard-for-in */
-/* eslint-disable @typescript-eslint/no-dynamic-delete */
-/* eslint-disable no-negated-condition */
-/* eslint-disable no-eq-null */
-/* eslint-disable eqeqeq */
-/* eslint-disable no-lonely-if */
-/* eslint-disable @typescript-eslint/prefer-optional-chain */
-/* eslint-disable complexity */
+
 // https://httpwg.org/specs/rfc7234.html
 // https://github.com/nodejs/undici/issues/1146
 // copy implementation of https://www.npmjs.com/package/http-cache-semantics
@@ -182,30 +174,30 @@ export class CachePolicy {
     // The "no-store" request directive indicates that a cache MUST NOT store any part of either this request or any response to it.
     return Boolean(
       !this._reqcc['no-store'] &&
-        // A cache MUST NOT store a response to any request, unless:
-        // The request method is understood by the cache and defined as being cacheable, and
-        (this._method === 'GET' ||
-          this._method === 'HEAD' ||
-          (this._method === 'POST' && this._hasExplicitExpiration())) &&
-        // the response status code is understood by the cache, and
-        understoodStatuses.has(this._status) &&
-        // the "no-store" cache directive does not appear in request or response header fields, and
-        !this._rescc['no-store'] &&
-        // the "private" response directive does not appear in the response, if the cache is shared, and
-        (!this._isShared || !this._rescc.private) &&
-        // the Authorization header field does not appear in the request, if the cache is shared,
-        (!this._isShared || this._noAuthorization || this._allowsStoringAuthenticated()) &&
-        // the response either:
-        // contains an Expires header field, or
-        (this._resHeaders.expires ||
-          // contains a max-age response directive, or
-          // contains a s-maxage response directive and the cache is shared, or
-          // contains a public response directive.
-          this._rescc['max-age'] ||
-          (this._isShared && this._rescc['s-maxage']) ||
-          this._rescc.public ||
-          // has a status code that is defined as cacheable by default
-          statusCodeCacheableByDefault.has(this._status)),
+      // A cache MUST NOT store a response to any request, unless:
+      // The request method is understood by the cache and defined as being cacheable, and
+      (this._method === 'GET' ||
+        this._method === 'HEAD' ||
+        (this._method === 'POST' && this._hasExplicitExpiration())) &&
+      // the response status code is understood by the cache, and
+      understoodStatuses.has(this._status) &&
+      // the "no-store" cache directive does not appear in request or response header fields, and
+      !this._rescc['no-store'] &&
+      // the "private" response directive does not appear in the response, if the cache is shared, and
+      (!this._isShared || !this._rescc.private) &&
+      // the Authorization header field does not appear in the request, if the cache is shared,
+      (!this._isShared || this._noAuthorization || this._allowsStoringAuthenticated()) &&
+      // the response either:
+      // contains an Expires header field, or
+      (this._resHeaders.expires ||
+        // contains a max-age response directive, or
+        // contains a s-maxage response directive and the cache is shared, or
+        // contains a public response directive.
+        this._rescc['max-age'] ||
+        (this._isShared && this._rescc['s-maxage']) ||
+        this._rescc.public ||
+        // has a status code that is defined as cacheable by default
+        statusCodeCacheableByDefault.has(this._status)),
     )
   }
 

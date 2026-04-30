@@ -66,9 +66,12 @@ export declare namespace StandardSchemaV1 {
   export type InferOutput<Schema extends StandardSchemaV1> = NonNullable<Schema['~standard']['types']>['output']
 }
 
-export const prettifyStandardSchemaError = (error: unknown): string | null => {
+export const prettifyErrorIfStandardSchemaFailure = (error: unknown): string | null => {
   if (!looksLikeStandardSchemaFailure(error)) return null
+  return prettifyStandardSchemaError(error)
+}
 
+export const prettifyStandardSchemaError = (error: StandardSchemaV1.FailureResult): string => {
   const issues = [...error.issues]
     .map(issue => {
       const path = issue.path || []

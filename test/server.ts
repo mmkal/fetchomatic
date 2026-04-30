@@ -18,7 +18,7 @@ export type TestServer = TestServerFixture & {
 export type CreateServer = (serverDefinition: ServerDefinition) => Promise<TestServer>
 
 export const createCreateServer = (
-  startServer: (fetch: (request: Request) => Promise<Response>) => Promise<TestServerFixture>,
+  startServer: (fetch: (request: Request) => Promise<Response>) => TestServerFixture | Promise<TestServerFixture>,
 ): CreateServer => {
   return async function createServer(serverDefinition) {
     const previousRequests: Request[] = []

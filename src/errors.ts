@@ -13,17 +13,17 @@ export class FetchomaticError extends Error {
   }
 
   static fromThrown(error: unknown) {
-    return error instanceof FetchomaticError
-      ? error
-      : error && typeof (error as Record<string, unknown>).message === 'string'
-        ? new FetchomaticError(`Unknown error thrown: ${(error as {message: string}).message}`, {
-            code: 'FETCHOMATIC_EUNKNOWN',
-            cause: error,
-          })
-        : new FetchomaticError(`Unknown error thrown`, {
-            code: 'FETCHOMATIC_EUNKNOWN',
-            cause: error,
-          })
+    if (error instanceof Error) return error
+
+    return error && typeof (error as Record<string, unknown>).message === 'string'
+      ? new FetchomaticError(`Unknown error thrown: ${(error as {message: string}).message}`, {
+          code: 'FETCHOMATIC_EUNKNOWN',
+          cause: error,
+        })
+      : new FetchomaticError(`Unknown error thrown`, {
+          code: 'FETCHOMATIC_EUNKNOWN',
+          cause: error,
+        })
   }
 
   static throw = Object.fromEntries(

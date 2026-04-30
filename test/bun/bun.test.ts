@@ -5,6 +5,7 @@ import {fetchomatic} from '../../src'
 import {createCreateServer} from '../server'
 
 const createServer = createCreateServer(async fetch => {
+    // @ts-ignore
     const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,

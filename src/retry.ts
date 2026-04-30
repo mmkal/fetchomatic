@@ -1,25 +1,19 @@
 import type {SimplifiedRequest} from './convert.js'
 import {parseFetchArgs} from './convert.js'
-import type {Method, FetchErrorCode, BaseFetch} from './types.js'
+import {FetchomaticError} from './errors.js'
+import type {Awaitable, BaseFetch, FetchErrorCode, Method} from './types.js'
 
-export interface ShouldRetryOptions {
+export interface RetryParams {
   attemptsMade: number
   method: Method
   errorCode: FetchErrorCode | null
   request: SimplifiedRequest
   response: Response | null
-  basis: ShouldRetry
-  fetch: BaseFetch
+  error: unknown
 }
-/* eslint-disable @typescript-eslint/no-loop-func */
-export type ShouldRetry = (options: ShouldRetryOptions) => RetryInstruction
 
-export interface RetryInstruction {
-  retryAfterMs: number | null
-  previous: RetryInstruction | null
-  reason: string
-  request?: (parsed: Pick<SimplifiedRequest, 'headers'>) => Pick<SimplifiedRequest, 'headers'>
-}
+export type RetryDecision = {retry: true; delayMs: number; reason?: string} | {retry: false; reason?: string}
+export type RetryPolicy = (params: RetryParams) => Awaitable<RetryDecision>
 
 export interface RetryOptions {
   methods?: Method[]
@@ -34,26 +28,15 @@ export interface RetryOptions {
   respectRateLimitReset?: boolean
 }
 
-export interface RetryInfo {
-  options: ShouldRetryOptions
-  instruction: RetryInstruction
-}
+type FetchResult = {ok: true; response: Response} | {ok: false; error: unknown}
 
-export const noRetry: ShouldRetry = () => ({
-  retryAfterMs: null,
-  previous: null,
-  reason: 'noRetry',
-})
-
-export type FetchResultSuccess = {ok: true; response: Response}
-export type FetchResultFailure = {ok: false; error: {cause?: {code?: string}} | undefined | null}
-export type FetchResult = FetchResultSuccess | FetchResultFailure
-interface RetryConditions {
+type RetryConditions = {
   methods: Method[]
   statuses: number[]
   errorCodes: FetchErrorCode[]
 }
-export const defaultRetryConditions: RetryConditions = {
+
+const defaultRetryConditions: RetryConditions = {
   methods: ['GET', 'PUT', 'HEAD', 'OPTIONS', 'TRACE'],
   statuses: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
   errorCodes: [
@@ -68,152 +51,15 @@ export const defaultRetryConditions: RetryConditions = {
   ],
 }
 
-/** Merges two `RetryCondition`s together, including all properties from each */
-export const unionRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => ({
-  methods: [...new Set([...left.methods, ...right.methods])],
-  statuses: [...new Set([...left.statuses, ...right.statuses])],
-  errorCodes: [...new Set([...left.errorCodes, ...right.errorCodes])],
-})
-
-/** Merges two `RetryCondition`s together, including only properties that appear in both */
-export const intersectRetryConditions = (left: RetryConditions, right: RetryConditions): RetryConditions => {
-  const rightMethods = new Set(right.methods)
-  const rightStatuses = new Set(right.statuses)
-  const rightErrorCodes = new Set(right.errorCodes)
-  return {
-    methods: left.methods.filter(m => rightMethods.has(m)),
-    statuses: left.statuses.filter(s => rightStatuses.has(s)),
-    errorCodes: left.errorCodes.filter(c => rightErrorCodes.has(c)),
-  }
-}
-
-export const retryOnFailure = ({conditions = defaultRetryConditions} = {}): ShouldRetry => {
-  const methods = new Set(conditions.methods)
-  const statuses = new Set(conditions.statuses)
-  const errorCodes = new Set(conditions.errorCodes)
-  return opts => {
-    const isRetryableErrorCode = opts.errorCode && errorCodes.has(opts.errorCode)
-    const isRetryableStatus = opts.response?.status && statuses.has(opts.response.status)
-    const shouldRetry = methods.has(opts.method) && (isRetryableErrorCode || isRetryableStatus)
-    const common = {previous: null, reason: 'retryOnFailure'}
-    return shouldRetry ? {retryAfterMs: 0, ...common} : {retryAfterMs: null, ...common}
-  }
-}
-
-export const delayRetry =
-  ({ms}: {ms: number}): ShouldRetry =>
-  opts => {
-    const previous = opts.basis(opts)
-    if (typeof previous.retryAfterMs !== 'number') {
-      return previous
-    }
-
-    return {
-      retryAfterMs: ms,
-      previous,
-      reason: `Retry delay set to ${ms}ms`,
-    }
-  }
-
-export type ShouldRetryExtender<T extends {}> = (params: T) => ShouldRetry
-
 type Jitter = (delay: number) => number
-export const fullJitter: Jitter = delay => Math.random() * delay
-export const noJitter: Jitter = delay => delay
-export const expBackoff: ShouldRetryExtender<{power: number; jitter?: Jitter}> =
-  ({power, jitter = fullJitter}) =>
-  opts => {
-    // Full jitter is pretty good at preventing thundering herds: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter
-    const previous = opts.basis(opts)
-    if (typeof previous.retryAfterMs !== 'number') {
-      return previous
-    }
 
-    const exp = opts.attemptsMade
-    const adjustedRetryAfterMs = previous.retryAfterMs * power ** exp
-    const jitteredRetryAfterMs = jitter(adjustedRetryAfterMs)
-    return {
-      retryAfterMs: jitteredRetryAfterMs,
-      previous,
-      reason: `Attempt ${opts.attemptsMade} failed, delaying ${previous.retryAfterMs}*${power}^${exp}=${adjustedRetryAfterMs}, jittered to ${jitteredRetryAfterMs}`,
-    }
-  }
-
-export const capRetryTimeout: ShouldRetryExtender<{ms: number; behavior: 'limit' | 'disable-retry'}> =
-  ({ms: upperLimit, behavior}) =>
-  opts => {
-    const previous = opts.basis(opts)
-    if (typeof previous.retryAfterMs !== 'number' || previous.retryAfterMs <= upperLimit) {
-      return previous
-    }
-
-    if (behavior === 'disable-retry') {
-      return {
-        retryAfterMs: null,
-        previous,
-        reason: `Retry disabled, cap ${upperLimit}ms exceeded`,
-      }
-    }
-
-    return {
-      retryAfterMs: upperLimit,
-      previous,
-      reason: `Retry delay capped to ${upperLimit}ms`,
-    }
-  }
-
-export const capRetryAttempts: ShouldRetryExtender<{attempts: number}> =
-  ({attempts}) =>
-  opts => {
-    const previous = opts.basis(opts)
-    if (opts.attemptsMade >= attempts) {
-      return {
-        retryAfterMs: null,
-        previous,
-        reason: `Retry disabled, ${attempts} attempts reached`,
-      }
-    }
-
-    return previous
-  }
-
-export const respectRateLimitHeaders = (): ShouldRetry => opts => {
-  const previous = opts.basis(opts)
-  const retryAfterHeader = opts.response?.headers.get('retry-after')
-
-  if (retryAfterHeader) {
-    return {
-      retryAfterMs: /\D/.test(retryAfterHeader)
-        ? new Date(retryAfterHeader).getTime() - Date.now()
-        : Number(retryAfterHeader) * 1000,
-      previous,
-      reason: `retry-after response header instructed waiting for ${retryAfterHeader}s`,
-    }
-  }
-
-  const rateLimitResetEpochSeconds = opts.response?.headers.get('x-ratelimit-reset')
-  if (rateLimitResetEpochSeconds) {
-    const date = new Date(rateLimitResetEpochSeconds).toISOString()
-    return {
-      retryAfterMs: Number(rateLimitResetEpochSeconds) * 1000 - Date.now(),
-      previous,
-      reason: `x-ratelimit-reset header instructed waiting until epoch ${rateLimitResetEpochSeconds} (=${date})`,
-    }
-  }
-
-  return previous
-}
-
-export const createShouldRetry = (...list: ShouldRetry[]) => {
-  return list.slice(1).reduce((basis, next) => {
-    return opts => next({...opts, basis})
-  }, list[0] || noRetry)
-}
+const fullJitter: Jitter = delay => Math.random() * delay
+const noJitter: Jitter = delay => delay
 
 type ResolvedRetryOptions = {
-  methods: Method[]
-  statuses: number[]
-  errorCodes: FetchErrorCode[]
+  methods: Set<Method>
+  statuses: Set<number>
+  errorCodes: Set<FetchErrorCode>
   maxRetries: number
   delays: number[]
   backoffMultiplier: number
@@ -233,185 +79,134 @@ const resolveRateLimitResetMs = (header: string) => {
   return Math.max(0, rawMs)
 }
 
+const getErrorCode = (error: unknown): FetchErrorCode | null => {
+  if (!error || typeof error !== 'object') return null
+
+  if ('code' in error && typeof error.code === 'string') return error.code as FetchErrorCode
+  if (!('cause' in error)) return null
+
+  const {cause} = error
+  if (!cause || typeof cause !== 'object') return null
+  if ('code' in cause && typeof cause.code === 'string') return cause.code as FetchErrorCode
+  return null
+}
+
+const getMaxDelayMs = (options: RetryOptions): number | null => {
+  if (typeof options.maxDelayMs === 'number') return options.maxDelayMs
+  return null
+}
+
 const normalizeRetryOptions = (options: RetryOptions): ResolvedRetryOptions => ({
-  methods: options.methods || defaultRetryConditions.methods,
-  statuses: options.statuses || defaultRetryConditions.statuses,
-  errorCodes: options.errorCodes || defaultRetryConditions.errorCodes,
-  maxRetries: options.maxRetries ?? 10,
-  delays: options.delays?.length ? options.delays : [0],
-  backoffMultiplier: options.backoffMultiplier ?? 1,
+  methods: new Set(options.methods || defaultRetryConditions.methods),
+  statuses: new Set(options.statuses || defaultRetryConditions.statuses),
+  errorCodes: new Set(options.errorCodes || defaultRetryConditions.errorCodes),
+  maxRetries: typeof options.maxRetries === 'number' ? options.maxRetries : 10,
+  delays: options.delays && options.delays.length > 0 ? options.delays : [0],
+  backoffMultiplier: typeof options.backoffMultiplier === 'number' ? options.backoffMultiplier : 1,
   jitter: options.jitter === 'full' ? fullJitter : noJitter,
-  maxDelayMs: options.maxDelayMs ?? null,
-  respectRetryAfter: options.respectRetryAfter ?? false,
-  respectRateLimitReset: options.respectRateLimitReset ?? false,
+  maxDelayMs: getMaxDelayMs(options),
+  respectRetryAfter: options.respectRetryAfter === true,
+  respectRateLimitReset: options.respectRateLimitReset === true,
 })
 
 const calculateRetryDelayMs = (options: ResolvedRetryOptions, attemptsMade: number) => {
-  const {delays, backoffMultiplier} = options
-  const explicitDelay = delays[attemptsMade]
+  const retriesMade = Math.max(0, attemptsMade - 1)
+  const explicitDelay = options.delays[retriesMade]
   const baseDelay =
     typeof explicitDelay === 'number'
       ? explicitDelay
-      : delays[delays.length - 1] * backoffMultiplier ** (attemptsMade - delays.length + 1)
+      : options.delays[options.delays.length - 1] *
+        options.backoffMultiplier ** (retriesMade - options.delays.length + 1)
 
-  const cappedDelay =
-    typeof options.maxDelayMs === 'number' ? Math.min(baseDelay, options.maxDelayMs) : baseDelay
+  const cappedDelay = typeof options.maxDelayMs === 'number' ? Math.min(baseDelay, options.maxDelayMs) : baseDelay
 
   return options.jitter(cappedDelay)
 }
 
-export const createRetryPolicy = (options: RetryOptions): ShouldRetry => {
+const retryableFailureReason = (params: RetryParams, options: ResolvedRetryOptions): string | null => {
+  if (!options.methods.has(params.method)) return null
+
+  if (params.response && options.statuses.has(params.response.status)) {
+    return `Retryable response status ${params.response.status}`
+  }
+
+  if (params.errorCode && options.errorCodes.has(params.errorCode)) {
+    return `Retryable error code ${params.errorCode}`
+  }
+
+  return null
+}
+
+export const retry = (params: RetryParams, options: RetryOptions): RetryDecision => {
   const resolved = normalizeRetryOptions(options)
-  const matchesFailure = retryOnFailure({
-    conditions: {
-      methods: resolved.methods,
-      statuses: resolved.statuses,
-      errorCodes: resolved.errorCodes,
-    },
-  })
+  const failureReason = retryableFailureReason(params, resolved)
+  if (!failureReason) {
+    return {retry: false, reason: 'Response/error did not match retry policy'}
+  }
 
-  return retryOptions => {
-    const previous = matchesFailure({...retryOptions, basis: noRetry})
-    if (typeof previous.retryAfterMs !== 'number') {
-      return previous
-    }
+  if (params.attemptsMade > resolved.maxRetries) {
+    return {retry: false, reason: `Retry disabled, ${resolved.maxRetries} retries reached`}
+  }
 
-    if (retryOptions.attemptsMade >= resolved.maxRetries) {
-      return {
-        retryAfterMs: null,
-        previous,
-        reason: `Retry disabled, ${resolved.maxRetries} retries reached`,
-      }
-    }
+  const retryAfterHeader = resolved.respectRetryAfter && params.response?.headers.get('retry-after')
+  const rateLimitResetHeader = resolved.respectRateLimitReset && params.response?.headers.get('x-ratelimit-reset')
+  const headerDelayMs = retryAfterHeader
+    ? resolveRetryAfterMs(retryAfterHeader)
+    : rateLimitResetHeader
+      ? resolveRateLimitResetMs(rateLimitResetHeader)
+      : null
+  const delayMs =
+    typeof headerDelayMs === 'number' ? headerDelayMs : calculateRetryDelayMs(resolved, params.attemptsMade)
 
-    const retryAfterHeader =
-      resolved.respectRetryAfter && retryOptions.response?.headers.get('retry-after')
-    const rateLimitResetHeader =
-      resolved.respectRateLimitReset && retryOptions.response?.headers.get('x-ratelimit-reset')
-    const scheduleDelayMs = calculateRetryDelayMs(resolved, retryOptions.attemptsMade)
-    const headerDelayMs = retryAfterHeader
-      ? resolveRetryAfterMs(retryAfterHeader)
+  return {
+    retry: true,
+    delayMs,
+    reason: retryAfterHeader
+      ? `retry-after response header instructed waiting for ${retryAfterHeader}`
       : rateLimitResetHeader
-        ? resolveRateLimitResetMs(rateLimitResetHeader)
-        : null
-    const retryAfterMs = headerDelayMs ?? scheduleDelayMs
-
-    return {
-      retryAfterMs,
-      previous,
-      reason: retryAfterHeader
-        ? `retry-after response header instructed waiting for ${retryAfterHeader}`
-        : rateLimitResetHeader
-          ? `x-ratelimit-reset header instructed waiting until epoch ${rateLimitResetHeader}`
-          : `Retry ${retryOptions.attemptsMade + 1}/${resolved.maxRetries} scheduled after ${retryAfterMs}ms`,
-    }
+        ? `x-ratelimit-reset header instructed waiting until epoch ${rateLimitResetHeader}`
+        : failureReason,
   }
 }
 
-export interface MegaRetryOptions {
-  failureConditions?: RetryConditions
-  firstRetryTimeoutMs?: number
-  power?: number
-  maxRetries?: number
-  jitter?: Jitter
-  capTimeout?: {
-    ms: number
-    behavior: 'limit' | 'disable-retry'
-  }
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const getRetryPolicy = (options: RetryOptions | RetryPolicy): RetryPolicy => {
+  if (typeof options === 'function') return options
+  return params => retry(params, options)
 }
 
-export const megaRetry = ({
-  failureConditions = defaultRetryConditions,
-  firstRetryTimeoutMs = 100,
-  power = 2,
-  maxRetries = Number.POSITIVE_INFINITY,
-  jitter = fullJitter,
-  capTimeout = {ms: Number.POSITIVE_INFINITY, behavior: 'limit'},
-}: MegaRetryOptions): ShouldRetry =>
-  createShouldRetry(
-    retryOnFailure({conditions: failureConditions}),
-    delayRetry({ms: firstRetryTimeoutMs}),
-    expBackoff({power, jitter}),
-    capRetryTimeout(capTimeout),
-    capRetryAttempts({attempts: maxRetries}),
-  )
-
-/** Get a new `fetch` instance which retries based on the `shouldRetry` function */
-export const withRetry = (
-  fetch: BaseFetch,
-  options: RetryOptions | {shouldRetry: ShouldRetry},
-): BaseFetch & typeof options => {
-  const shouldRetry = 'shouldRetry' in options ? options.shouldRetry : createRetryPolicy(options)
+/** Get a new `fetch` instance which retries based on the retry policy */
+export const withRetry = (fetch: BaseFetch, options: RetryOptions | RetryPolicy): BaseFetch => {
+  const retryPolicy = getRetryPolicy(options)
   const wrapped: BaseFetch = async (input, init) => {
     let attemptsMade = 0
-    let retryInstruction!: ReturnType<ShouldRetry>
-    let result!: FetchResult
 
-    do {
-      const retryAfterMs = retryInstruction?.retryAfterMs
-      if (typeof retryAfterMs === 'number') {
-        await new Promise(r => setTimeout(r, retryAfterMs))
-      }
-
-      const resolvedFetch = fetch
-      const parsedArgs = parseFetchArgs([input, init])
-      const {headers} = retryInstruction?.request?.(parsedArgs) || parsedArgs
-      init = {...init, headers}
-      result = await resolvedFetch(input, init)
-        .then((response): typeof result => ({ok: true, response}))
-        .catch((error: unknown): typeof result => ({ok: false, error: error as never}))
-
-      const method = (init?.method as Method) || 'GET'
-
-      retryInstruction = shouldRetry({
-        attemptsMade,
-        method,
-        basis: noRetry,
-        request: parseFetchArgs([input, init]),
-        ...(result.ok
-          ? {errorCode: null, response: result.response}
-          : {errorCode: (result.error?.cause?.code as FetchErrorCode) || null, response: null}),
-        fetch: resolvedFetch,
-      })
+    while (true) {
+      const request = parseFetchArgs([input, init])
+      const result: FetchResult = await fetch(input, init)
+        .then(response => ({ok: true, response}) as const)
+        .catch((error: unknown) => ({ok: false, error}) as const)
 
       attemptsMade++
-    } while (typeof retryInstruction.retryAfterMs === 'number')
 
-    if (!result.ok) {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw result.error
+      const decision = await retryPolicy({
+        attemptsMade,
+        method: request.method,
+        request,
+        ...(result.ok
+          ? {error: null, errorCode: null, response: result.response}
+          : {error: result.error, errorCode: getErrorCode(result.error), response: null}),
+      })
+
+      if (!decision.retry) {
+        if (result.ok) return result.response
+        throw FetchomaticError.fromThrown(result.error)
+      }
+
+      await sleep(decision.delayMs)
     }
-
-    return result.response
   }
 
-  return Object.assign(wrapped, options)
+  return wrapped
 }
-
-export const awsRetryConfig = createShouldRetry(
-  retryOnFailure(),
-  delayRetry({ms: 100}),
-  expBackoff({power: 2}),
-  capRetryAttempts({attempts: 4}),
-)
-
-export const aws2 = megaRetry({
-  failureConditions: defaultRetryConditions,
-  firstRetryTimeoutMs: 100,
-  jitter: fullJitter,
-  power: 2,
-  maxRetries: 10,
-})
-
-export const githubRetryConfig = createShouldRetry(
-  retryOnFailure(),
-  delayRetry({ms: 100}),
-  expBackoff({power: 2}),
-  capRetryAttempts({attempts: 4}),
-  respectRateLimitHeaders(),
-  capRetryTimeout({ms: 120_000, behavior: 'disable-retry'}),
-)
-
-export const sometimesAwsSometimesGithub = createShouldRetry(opts =>
-  opts.response?.headers.get('host')?.includes('github') ? githubRetryConfig(opts) : awsRetryConfig(opts),
-)

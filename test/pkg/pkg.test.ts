@@ -33,6 +33,8 @@ test.beforeAll(async () => {
 })
 
 test.describe(`async import pkg`, () => {
-  const _fetchomatic: typeof fetchomatic = (...args) => asyncModule.fetchomatic(...args)
+  const _fetchomatic: typeof fetchomatic = Object.assign((...args) => asyncModule.fetchomatic(...args), {
+    retry: (...args) => asyncModule.fetchomatic.retry(...args),
+  })
   createTestSuite({test, expect, fetch, fetchomatic: _fetchomatic, createServer})
 })

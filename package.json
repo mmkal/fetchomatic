@@ -69,7 +69,7 @@
     "@types/node": "^22.15.30",
     "@whatwg-node/server": "^0.10.18",
     "concurrently": "^8.2.0",
-    "eslint": "8.57.0",
+    "eslint": "9.39.4",
     "eslint-plugin-mmkal": "^0.11.3",
     "expect-type": "^0.15.0",
     "expiry-map": "^2.0.0",

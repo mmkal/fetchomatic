@@ -15,6 +15,15 @@ export interface SimplifiedRequest {
   headers: Record<string, string>
 }
 
+const getSynchronousBodyText = (body: BodyInit | null | undefined): string | undefined => {
+  if (body === undefined || body === null) return undefined
+  if (typeof body === 'string') return body
+  if (body instanceof URLSearchParams) return body.toString()
+  if (body instanceof ArrayBuffer) return new TextDecoder().decode(body)
+  if (ArrayBuffer.isView(body)) return new TextDecoder().decode(body)
+  return undefined
+}
+
 export const parseFetchArgs = ([init, input]: Parameters<BaseFetch>): SimplifiedRequest => {
   if (typeof init !== 'string' && !(init instanceof URL)) {
     throw new TypeError(`RequestInfo form of \`init\` param not supported`)
@@ -29,12 +38,12 @@ export const parseFetchArgs = ([init, input]: Parameters<BaseFetch>): Simplified
     },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     get json() {
-      const json = input?.body?.toString()
+      const json = getSynchronousBodyText(input?.body)
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return json ? JSON.parse(json) : null
     },
     get text() {
-      return input?.body?.toString()
+      return getSynchronousBodyText(input?.body)
     },
     /** dictionary-format headers */
     get headers() {

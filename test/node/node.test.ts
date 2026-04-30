@@ -1,10 +1,10 @@
 import {test, expect} from '@playwright/test'
 import {createServerAdapter} from '@whatwg-node/server'
-import * as http from 'node:http'
 import {createRequire} from 'module'
+import * as http from 'node:http'
 import {fetchomatic} from '../../src/index.js'
-import {createTestSuite} from '../suite.js'
 import {createCreateServer} from '../server.js'
+import {createTestSuite} from '../suite.js'
 
 const require = createRequire(import.meta.url)
 const createServer = createCreateServer(async fetch => {
@@ -19,13 +19,13 @@ const createServer = createCreateServer(async fetch => {
     baseUrl: `http://${hostname}:${(address as {port: number}).port.toString()}`,
     async [Symbol.asyncDispose]() {
       await adapter.dispose()
-      await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve()))
+      await new Promise<void>((resolve, reject) => server.close(e => (e ? reject(e) : resolve())))
     },
   }
 })
 
 const cases = [
-  ['global.fetch', global.fetch],
+  ['global.fetch', globalThis.fetch],
   ['node-fetch', require('node-fetch')],
   ['isomorphic-fetch', require('isomorphic-fetch')],
   ['make-fetch-happen', require('make-fetch-happen')],
