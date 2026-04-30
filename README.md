@@ -32,6 +32,9 @@ const myfetch = fetchomatic(fetch, {
     jitter: 'full',
     respectRetryAfter: true,
   },
+  reject: {
+    statuses: [400, 401, 403, 404, 500],
+  },
 })
 
 await myfetch('https://example.com', {headers: {'user-agent': 'abc'}}) // myfetch can be used exactly like the built-in `fetch`
@@ -68,6 +71,27 @@ const myfetch = fetchomatic(fetch, {
 ```
 
 Fetchomatic does not automatically clone responses for retry policies. If a policy needs to read a response body and still return that response to the caller, it should read from `params.response.clone()`.
+
+The `reject` option can make final responses throw after retry has finished. Without `reject`, Fetchomatic preserves normal `fetch` behavior and returns responses for HTTP error statuses.
+
+```ts
+const myfetch = fetchomatic(fetch, {
+  retry: {maxRetries: 3, statuses: [500, 502, 503]},
+  reject: {statuses: [400, 401, 403, 404, 500]},
+})
+```
+
+Like `retry`, `reject` can be a policy function. It can delegate to the built-in helper or inspect a cloned body.
+
+```ts
+const myfetch = fetchomatic(fetch, {
+  async reject(params) {
+    const body = await params.response.clone().json()
+    if (body.error) return {reject: true, error: new Error(body.error)}
+    return {reject: false}
+  },
+})
+```
 
 Notes on how this implemented.
 

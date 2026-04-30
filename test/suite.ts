@@ -180,6 +180,89 @@ export const createTestSuite = ({test, expect, fetch, fetchomatic, createServer}
     expect(server.helpers.previousRequests).toHaveLength(2)
   })
 
+  test('reject option throws for matching final response statuses', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('not found', {status: 404})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {reject: {statuses: [404]}})
+
+    await expect(fetcher(server.baseUrl)).rejects.toMatchObject({
+      name: 'FetchomaticResponseError',
+      response: {status: 404},
+    })
+    expect(server.helpers.previousRequests).toHaveLength(1)
+  })
+
+  test('reject option runs after retry is exhausted', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('uh-oh', {status: 500})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {
+      retry: {
+        maxRetries: 2,
+        delays: [0],
+      },
+      reject: {statuses: [500]},
+    })
+
+    await expect(fetcher(server.baseUrl)).rejects.toMatchObject({
+      name: 'FetchomaticResponseError',
+      response: {status: 500},
+    })
+    expect(server.helpers.previousRequests).toHaveLength(3)
+  })
+
+  test('reject function can delegate to built-in reject policy', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('teapot', {status: 418})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {
+      reject: params => fetchomatic.reject(params, {statuses: [418]}),
+    })
+
+    await expect(fetcher(server.baseUrl)).rejects.toMatchObject({
+      name: 'FetchomaticResponseError',
+      response: {status: 418},
+    })
+  })
+
+  test('reject function can inspect a cloned response body', async () => {
+    await using server = await createServer({
+      fetch() {
+        return Response.json({error: 'nope'})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {
+      async reject(params) {
+        const body = await params.response.clone().json()
+        if (body.error) return {reject: true, error: new Error(body.error)}
+        return {reject: false}
+      },
+    })
+
+    await expect(fetcher(server.baseUrl)).rejects.toThrow('nope')
+  })
+
+  test('reject option defaults to rejecting non-ok responses', async () => {
+    await using server = await createServer({
+      fetch() {
+        return new Response('bad gateway', {status: 502})
+      },
+    })
+    const fetcher = fetchomatic(fetch, {reject: {}})
+
+    await expect(fetcher(server.baseUrl)).rejects.toMatchObject({
+      name: 'FetchomaticResponseError',
+      response: {status: 502},
+    })
+  })
+
   test('parse', async () => {
     await using server = await createServer({
       fetch(request) {

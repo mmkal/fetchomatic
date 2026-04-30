@@ -5,10 +5,18 @@ import {mergeRequestInits} from './convert.js'
 export type {WithCacheOptions} from './cache/index.js'
 export {FetchomaticError, type FetchomaticErrorCode, type CustomErrorCode} from './errors.js'
 export {ParseError, type Parser, type ResponseParser, type JsonType} from './parse.js'
+export {
+  FetchomaticResponseError,
+  type RejectDecision,
+  type RejectOptions,
+  type RejectParams,
+  type RejectPolicy,
+} from './reject.js'
 export type {RetryDecision, RetryOptions, RetryParams, RetryPolicy} from './retry.js'
 export type {TimeoutOptions} from './timeout.js'
 export {FetchErrorCodes, Methods, type BaseFetch, type FetchErrorCode, type Method} from './types.js'
 import {withParser} from './parse.js'
+import {reject, withReject, type RejectOptions, type RejectPolicy} from './reject.js'
 import {retry, withRetry, type RetryOptions, type RetryPolicy} from './retry.js'
 import {withTimeout} from './timeout.js'
 import type {BaseFetch} from './types.js'
@@ -20,6 +28,7 @@ export interface FetchomaticOptions {
   authorization?: string
   cache?: WithCacheOptions
   retry?: RetryOptions | RetryPolicy
+  reject?: RejectOptions | RejectPolicy
   timeout?: Parameters<typeof withTimeout>[1]
   parser?: Parameters<typeof withParser>[1]['parser']
 }
@@ -34,6 +43,7 @@ const applyHeaders = (fetch: BaseFetch, headers: Record<string, string>): BaseFe
 
 type Fetchomatic = ((fetch: BaseFetch, options?: FetchomaticOptions) => BaseFetch) & {
   retry: typeof retry
+  reject: typeof reject
 }
 
 const createFetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): BaseFetch => {
@@ -42,6 +52,7 @@ const createFetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): 
   if (options.timeout) wrapped = withTimeout(wrapped, options.timeout)
   if (options.retry) wrapped = withRetry(wrapped, options.retry)
   if (options.cache) wrapped = withCache(wrapped, options.cache)
+  if (options.reject) wrapped = withReject(wrapped, options.reject)
   if (options.parser) wrapped = withParser(wrapped, {parser: options.parser})
   if (options.defaults) wrapped = applyDefaults(wrapped, options.defaults)
   if (options.headers) wrapped = applyHeaders(wrapped, options.headers)
@@ -51,4 +62,4 @@ const createFetchomatic = (fetch: BaseFetch, options: FetchomaticOptions = {}): 
   return wrapped
 }
 
-export const fetchomatic: Fetchomatic = Object.assign(createFetchomatic, {retry})
+export const fetchomatic: Fetchomatic = Object.assign(createFetchomatic, {reject, retry})
