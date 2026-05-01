@@ -17,7 +17,7 @@ Aims:
     - `zod` for parsing
     - `pino` for logging
     - `debug` for debugging
-    - `next` for... stuff
+    - framework-specific `fetch` options like Next's `next.tags`
     - `keyv` or any map-like store for caching
 1. Be un-surprising and honest.
 

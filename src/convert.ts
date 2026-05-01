@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// todo: do own module augmentation/use a different type then the default `RequestInit`
-// import 'next'
 import type {BaseFetch, Method} from './types.js'
-
-// interface RequestInit {
-//   next?: NextFetchRequestConfig | undefined
-// }
 
 export interface SimplifiedRequest {
   url: URL
@@ -84,7 +78,7 @@ export const jsonFetchArgs = <T>(url: string | URL, params: {json: T}): Paramete
 }
 
 type RequestInitN = RequestInit & {next?: {tags: string[]}}
-/** Merges two request init objects, deep-merging headers and `next`-specific stuff */
+/** Merges two request init objects, deep-merging headers and Next fetch tags. */
 export const mergeTwoRequestInit = (left: RequestInitN, right: RequestInitN): RequestInitN => {
   return {
     ...left,

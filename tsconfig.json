@@ -11,10 +11,7 @@
     "noEmit": true,
     "noErrorTruncation": true,
     "esModuleInterop": true,
-    "sourceMap": true,
-    "plugins": [
-      {"name": "next"}
-    ]
+    "sourceMap": true
   },
   "include": [
     "src",
